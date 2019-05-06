@@ -1,4 +1,4 @@
-FROM microsoft/dotnet:2.1-sdk
+FROM mcr.microsoft.com/dotnet/core/sdk:3.0.100-preview5
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -78,8 +78,7 @@ RUN cd /tmp \
     && cp bombardier /usr/local/bin
 
 # Build and install wrk2
-ENV WRK_VERSION 4.1.0
-RUN cd /tmp \
+RUN if [ "$(dpkg --print-architecture)" -ne "arm64" ]; then cd /tmp \
     && git clone https://github.com/giltene/wrk2.git wrk2 \
     && cd wrk2 \
     && make \
@@ -87,6 +86,7 @@ RUN cd /tmp \
     && cp wrk2 /usr/local/bin \
     && cd .. \
     && rm -rf wrk2.zip
+fi
 
 # Install openssl 1.1.1
 RUN cd /tmp \
