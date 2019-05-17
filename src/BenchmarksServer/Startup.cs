@@ -1711,11 +1711,11 @@ namespace BenchmarkServer
                 {
                     if (job.Hardware == Hardware.ARM64)
                     {
-                        buildParameters += "-r linux-x64 ";
+                        buildParameters += "-r linux-arm64 ";
                     }
                     else
                     {
-                        buildParameters += "-r linux-arm64 ";
+                        buildParameters += "-r linux-x64 ";
                     }                    
                 }
             }
