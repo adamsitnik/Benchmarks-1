@@ -141,7 +141,11 @@ namespace Benchmarks
             {
                 Console.WriteLine($"{dotnet.Id} {dotnet.StartTime}");
             }
-            foreach (var dotnet in Process.GetProcessesByName("dotnet").Skip(1).Take(2))
+            foreach (var dotnet in Process.GetProcessesByName("dotnet")
+                .Where(process => process.Id != Process.GetCurrentProcess().Id)
+                .OrderBy(process => process.StartTime)
+                .Skip(1) // benchmark server
+                )
             {
                 try
                 {
