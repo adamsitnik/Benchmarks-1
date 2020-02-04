@@ -29,12 +29,15 @@ namespace Benchmarks.Middleware
 #endif
         private readonly RequestDelegate _next;
 
+        private static readonly byte[] bytes = Convert.FromBase64String("eyJtZXNzYWdlIjoiSGVsbG8sIFdvcmxkISJ9");
+
+
         public JsonMiddleware(RequestDelegate next)
         {
             _next = next;
         }
 
-        public async Task Invoke(HttpContext httpContext)
+        public Task Invoke(HttpContext httpContext)
         {
             if (httpContext.Request.Path.StartsWithSegments(_path, StringComparison.Ordinal))
             {
@@ -42,24 +45,15 @@ namespace Benchmarks.Middleware
                 httpContext.Response.ContentType = "application/json";
                 httpContext.Response.ContentLength = _bufferSize;
 
-#if !NETCOREAPP3_0 && !NETCOREAPP3_1 && !NETCOREAPP5_0
-                var syncIOFeature = httpContext.Features.Get<IHttpBodyControlFeature>();
-                if (syncIOFeature != null)
-                {
-                    syncIOFeature.AllowSynchronousIO = true;
-                }
+                var local = bytes;
+                httpContext.Response.Body.Write(local, 0, _bufferSize);
 
-                using (var sw = new StreamWriter(httpContext.Response.Body, _encoding, bufferSize: _bufferSize))
-                {
-                    _json.Serialize(sw, new JsonMessage { message = "Hello, World!" });
-                }
-#else
-                await JsonSerializer.SerializeAsync<JsonMessage>(httpContext.Response.Body, new JsonMessage { message = "Hello, World!" });
-#endif
-                return;
+                return Task.CompletedTask;
             }
-
-            await _next(httpContext);
+            else
+            {
+                return _next(httpContext);
+            }
         }
     }
 
