@@ -50,7 +50,7 @@ namespace Benchmarks
             Console.WriteLine($"dotnet processes");
             foreach (var dotnet in Process.GetProcessesByName("dotnet"))
             {
-                Console.WriteLine($"{dotnet.Id} {dotnet.StartTime} {dotnet.StartInfo.Arguments}");
+                Console.WriteLine($"{dotnet.Id} {dotnet.StartTime}");
             }
 
             Console.WriteLine("#StartJobStatistics");
