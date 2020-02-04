@@ -137,26 +137,25 @@ namespace Benchmarks
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
 
             Console.WriteLine($"dotnet processes before");
-            foreach (var dotnet in Process.GetProcessesByName("dotnet"))
+            foreach (var process in Process.GetProcesses())
             {
-                Console.WriteLine($"{dotnet.Id} {dotnet.StartTime}");
+                Console.WriteLine($"{process.Id} {process.ProcessName} {process.StartTime}");
             }
-            foreach (var dotnet in Process.GetProcessesByName("dotnet")
-                .Where(process => process.Id != Process.GetCurrentProcess().Id)
-                .OrderBy(process => process.StartTime)
-                .Skip(1) // benchmark server
-                )
-            {
-                try
-                {
-                    KillTree(dotnet, DefaultKillTimeout);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                }
-                
-            }
+            //foreach (var dotnet in Process.GetProcessesByName("dotnet")
+            //    .Where(process => process.Id != Process.GetCurrentProcess().Id)
+            //    .OrderBy(process => process.StartTime)
+            //    .Skip(1) // benchmark server
+            //    )
+            //{
+            //    try
+            //    {
+            //        KillTree(dotnet, DefaultKillTimeout);
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Console.WriteLine(ex);
+            //    }
+            //}
             Console.WriteLine($"dotnet processes after");
             foreach (var dotnet in Process.GetProcessesByName("dotnet"))
             {
