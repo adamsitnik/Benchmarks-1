@@ -136,31 +136,19 @@ namespace Benchmarks
             
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
 
-            Console.WriteLine($"dotnet processes before");
-            foreach (var process in Process.GetProcesses())
+            foreach (var dotnet in Process.GetProcessesByName("Benchmarks")
+                .Where(process => process.Id != Process.GetCurrentProcess().Id)
+                .OrderBy(process => process.StartTime))
             {
-                Console.WriteLine($"{process.Id} {process.ProcessName} {process.StartTime}");
-            }
-            KillProcessUnix(5291, TimeSpan.FromMinutes(1));
-            //foreach (var dotnet in Process.GetProcessesByName("dotnet")
-            //    .Where(process => process.Id != Process.GetCurrentProcess().Id)
-            //    .OrderBy(process => process.StartTime)
-            //    .Skip(1) // benchmark server
-            //    )
-            //{
-            //    try
-            //    {
-            //        KillTree(dotnet, DefaultKillTimeout);
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        Console.WriteLine(ex);
-            //    }
-            //}
-            Console.WriteLine($"dotnet processes after");
-            foreach (var dotnet in Process.GetProcessesByName("dotnet"))
-            {
-                Console.WriteLine($"{dotnet.Id} {dotnet.StartTime}");
+                Console.WriteLine($"Found a hanged Benchmarks process, going to kill it");
+                try
+                {
+                    KillTree(dotnet, DefaultKillTimeout);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
             }
 
             Console.WriteLine("#StartJobStatistics");
