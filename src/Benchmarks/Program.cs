@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime;
@@ -47,7 +48,24 @@ namespace Benchmarks
             
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
 
-            Console.WriteLine($"dotnet processes");
+            Console.WriteLine($"dotnet processes before");
+            foreach (var dotnet in Process.GetProcessesByName("dotnet"))
+            {
+                Console.WriteLine($"{dotnet.Id} {dotnet.StartTime}");
+            }
+            foreach (var dotnet in Process.GetProcessesByName("dotnet").Skip(1).Take(2))
+            {
+                try
+                {
+                    dotnet.Kill();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+                
+            }
+            Console.WriteLine($"dotnet processes after");
             foreach (var dotnet in Process.GetProcessesByName("dotnet"))
             {
                 Console.WriteLine($"{dotnet.Id} {dotnet.StartTime}");
