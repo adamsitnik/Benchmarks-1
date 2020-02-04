@@ -141,6 +141,7 @@ namespace Benchmarks
             {
                 Console.WriteLine($"{process.Id} {process.ProcessName} {process.StartTime}");
             }
+            KillProcessUnix(5291, TimeSpan.FromMinutes(1));
             //foreach (var dotnet in Process.GetProcessesByName("dotnet")
             //    .Where(process => process.Id != Process.GetCurrentProcess().Id)
             //    .OrderBy(process => process.StartTime)
