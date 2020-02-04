@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Reflection;
@@ -45,6 +46,12 @@ namespace Benchmarks
             Console.WriteLine($"CoreFx version: {typeof(Regex).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion}");
             
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
+
+            Console.WriteLine($"dotnet processes");
+            foreach (var dotnet in Process.GetProcessesByName("dotnet"))
+            {
+                Console.WriteLine($"{dotnet.Id} {dotnet.StartTime} {dotnet.StartInfo.Arguments}");
+            }
 
             Console.WriteLine("#StartJobStatistics");
 
