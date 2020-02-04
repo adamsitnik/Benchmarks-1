@@ -46,9 +46,7 @@ namespace Benchmarks.Middleware
                 httpContext.Response.ContentLength = _bufferSize;
 
                 var local = bytes;
-                httpContext.Response.Body.Write(local, 0, _bufferSize);
-
-                return Task.CompletedTask;
+                return httpContext.Response.Body.WriteAsync(local, 0, _bufferSize);
             }
             else
             {
