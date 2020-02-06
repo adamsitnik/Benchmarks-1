@@ -29,9 +29,6 @@ namespace Benchmarks.Middleware
 #endif
         private readonly RequestDelegate _next;
 
-        private static readonly byte[] bytes = Convert.FromBase64String("eyJtZXNzYWdlIjoiSGVsbG8sIFdvcmxkISJ9");
-
-
         public JsonMiddleware(RequestDelegate next)
         {
             _next = next;
@@ -45,8 +42,22 @@ namespace Benchmarks.Middleware
                 httpContext.Response.ContentType = "application/json";
                 httpContext.Response.ContentLength = _bufferSize;
 
-                var local = bytes;
-                return httpContext.Response.Body.WriteAsync(local, 0, _bufferSize);
+#if !NETCOREAPP3_0 && !NETCOREAPP3_1 && !NETCOREAPP5_0
+                var syncIOFeature = httpContext.Features.Get<IHttpBodyControlFeature>();
+                if (syncIOFeature != null)
+                {
+                    syncIOFeature.AllowSynchronousIO = true;
+                }
+
+                using (var sw = new StreamWriter(httpContext.Response.Body, _encoding, bufferSize: _bufferSize))
+                {
+                    _json.Serialize(sw, new JsonMessage { message = "Hello, World!" });
+                }
+
+                return Task.CompletedTask;
+#else
+                return JsonSerializer.SerializeAsync<JsonMessage>(httpContext.Response.Body, new JsonMessage { message = "Hello, World!" });
+#endif
             }
             else
             {
