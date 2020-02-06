@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Benchmarks.Configuration;
@@ -35,13 +36,20 @@ namespace Benchmarks
 
         public static void KillTree(Process process, TimeSpan timeout)
         {
-            var children = new HashSet<int>();
-            GetAllChildIdsUnix(process.Id, children, timeout);
-            foreach (var childId in children)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                KillProcessUnix(childId, timeout);
+                RunProcessAndIgnoreOutput("taskkill", $"/T /F /PID {process.Id}", timeout);
             }
-            KillProcessUnix(process.Id, timeout);
+            else
+            {
+                var children = new HashSet<int>();
+                GetAllChildIdsUnix(process.Id, children, timeout);
+                foreach (var childId in children)
+                {
+                    KillProcessUnix(childId, timeout);
+                }
+                KillProcessUnix(process.Id, timeout);
+            }
         }
 
         private static int RunProcessAndIgnoreOutput(string fileName, string arguments, TimeSpan timeout)
