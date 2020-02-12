@@ -144,6 +144,10 @@ namespace Benchmarks
             
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
 
+            foreach (var process in Process.GetProcesses())
+            {
+                Console.WriteLine($"{process.Id} {process.ProcessName} {process.StartTime}");
+            }
             var currentProcessId = Process.GetCurrentProcess().Id;
             foreach (var process in Process.GetProcesses()
                 .Where(process => process.ProcessName != "BenchmarksServer" && process.Id != currentProcessId && !process.ProcessName.StartsWith("docker", StringComparison.OrdinalIgnoreCase))
