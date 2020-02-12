@@ -144,19 +144,15 @@ namespace Benchmarks
             
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
 
-            foreach (var process in Process.GetProcesses())
-            {
-                Console.WriteLine($"{process.Id} {process.ProcessName} {process.StartTime}");
-            }
-
-            foreach (var dotnet in Process.GetProcessesByName("Benchmarks")
-                .Where(process => process.Id != Process.GetCurrentProcess().Id)
+            var currentProcessId = Process.GetCurrentProcess().Id;
+            foreach (var process in Process.GetProcesses()
+                .Where(process => process.ProcessName != "BenchmarksServer" && process.Id != currentProcessId && !process.ProcessName.StartsWith("docker", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(process => process.StartTime))
             {
                 Console.WriteLine($"Found a hanged Benchmarks process, going to kill it");
                 try
                 {
-                    KillTree(dotnet, DefaultKillTimeout);
+                    KillTree(process, DefaultKillTimeout);
                 }
                 catch (Exception ex)
                 {
