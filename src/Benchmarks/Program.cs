@@ -144,6 +144,11 @@ namespace Benchmarks
             
             Console.WriteLine($"Environment.ProcessorCount: {Environment.ProcessorCount}");
 
+            foreach (var process in Process.GetProcesses())
+            {
+                Console.WriteLine($"{process.Id} {process.ProcessName} {process.StartTime}");
+            }
+
             foreach (var dotnet in Process.GetProcessesByName("Benchmarks")
                 .Where(process => process.Id != Process.GetCurrentProcess().Id)
                 .OrderBy(process => process.StartTime))
