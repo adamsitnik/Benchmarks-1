@@ -133,6 +133,7 @@ namespace PlatformBenchmarks
             // Body
             writer.Write(ByteBufferWriter.GetReadOnlySpan());
             writer.Commit();
+            Utf8JsonWriter.Reset();
         }
 
         private static void Default(PipeWriter pipeWriter)

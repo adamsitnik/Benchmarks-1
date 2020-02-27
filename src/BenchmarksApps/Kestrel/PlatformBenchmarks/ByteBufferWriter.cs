@@ -47,7 +47,7 @@ namespace PlatformBenchmarks
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlySpan<byte> GetReadOnlySpan()
         {
-            var span = _buffer.AsSpan(_index);
+            var span = _buffer.AsSpan(0, _index);
             _index = 0;
             return span;
         }
