@@ -34,6 +34,12 @@ namespace PlatformBenchmarks
             public readonly static AsciiString Json = "/json";
         }
 
+        [ThreadStatic] private static ByteBufferWriter ts_byteBufferWriter;
+        [ThreadStatic] private static Utf8JsonWriter ts_utf8JsonWriter;
+
+        private static ByteBufferWriter ByteBufferWriter => ts_byteBufferWriter ??= new ByteBufferWriter(256);
+        private static Utf8JsonWriter Utf8JsonWriter => ts_utf8JsonWriter ??= new Utf8JsonWriter(ByteBufferWriter);
+
         private RequestType _requestType;
 
         public void OnStartLine(HttpMethod method, HttpVersion version, Span<byte> target, Span<byte> path, Span<byte> query, Span<byte> customMethod, bool pathEncoded)
@@ -118,14 +124,14 @@ namespace PlatformBenchmarks
 
             // Content-Length header
             writer.Write(_headerContentLength);
-            var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-            writer.WriteNumeric((uint)jsonPayload.Length);
+            JsonSerializer.Serialize(Utf8JsonWriter, new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+            writer.WriteNumeric((uint)ByteBufferWriter.WrittenCount);
 
             // End of headers
             writer.Write(_eoh);
 
             // Body
-            writer.Write(jsonPayload);
+            writer.Write(ByteBufferWriter.GetReadOnlySpan());
             writer.Commit();
         }
 
