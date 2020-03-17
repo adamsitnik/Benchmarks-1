@@ -20,9 +20,9 @@ namespace PlatformBenchmarks
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
 
-        public async Task ExecuteAsync()
+        public Task ExecuteAsync()
             => Task.Factory.StartNew(
-                        async (s) => await ((BenchmarkApplication)s!).ExecuteAsyncLoop(),
+                        s => ((BenchmarkApplication)s!).ExecuteAsyncLoop().GetAwaiter().GetResult(),
                         this,
                         CancellationToken.None,
                         TaskCreationOptions.LongRunning,
