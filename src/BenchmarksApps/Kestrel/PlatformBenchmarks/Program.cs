@@ -15,6 +15,7 @@ namespace PlatformBenchmarks
             Console.WriteLine(BenchmarkApplication.ApplicationName);
             Console.WriteLine(BenchmarkApplication.Paths.Plaintext);
             Console.WriteLine(BenchmarkApplication.Paths.Json);
+            Console.WriteLine("Running the code from branch");
             DateHeader.SyncDateTimer();
 
             BuildWebHost(args).Run();
