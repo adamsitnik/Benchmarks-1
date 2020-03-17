@@ -5,6 +5,7 @@ using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 
@@ -20,6 +21,14 @@ namespace PlatformBenchmarks
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
 
         public async Task ExecuteAsync()
+            => Task.Factory.StartNew(
+                        async (s) => await ((BenchmarkApplication)s!).ExecuteAsyncLoop(),
+                        this,
+                        CancellationToken.None,
+                        TaskCreationOptions.LongRunning,
+                        TaskScheduler.Default);
+
+        public async Task ExecuteAsyncLoop()
         {
             try
             {
