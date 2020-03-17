@@ -41,16 +41,9 @@ namespace PlatformBenchmarks
         {
             while (true)
             {
-                var task = Reader.ReadAsync();
-
-                if (!task.IsCompleted)
-                {
-                    // No more data in the input
-                    await OnReadCompletedAsync();
-                }
-
-                var result = await task;
+                var result = await Reader.ReadAsync();
                 var buffer = result.Buffer;
+
                 while (true)
                 {
                     if (!ParseHttpRequest(ref buffer, result.IsCompleted, out var examined))
@@ -75,6 +68,8 @@ namespace PlatformBenchmarks
                     Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
+
+                await OnReadCompletedAsync();
             }
         }
 
