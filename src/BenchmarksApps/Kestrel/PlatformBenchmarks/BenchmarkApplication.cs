@@ -58,7 +58,7 @@ namespace PlatformBenchmarks
         {
             if (_requestType == RequestType.PlainText)
             {
-                PlainText(Writer);
+                PlainText(Writer, Socket);
             }
             else if (_requestType == RequestType.Json)
             {
@@ -72,10 +72,10 @@ namespace PlatformBenchmarks
             return default;
         }
 
-        private static void PlainText(PipeWriter pipeWriter)
+        private static void PlainText(PipeWriter pipeWriter, System.Net.Sockets.Socket socket)
         {
             var writer = GetWriter(pipeWriter);
-
+            var span = writer.Span;
             // HTTP 1.1 OK
             writer.Write(_http11OK);
 
@@ -97,7 +97,8 @@ namespace PlatformBenchmarks
 
             // Body
             writer.Write(_plainTextBody);
-            writer.Commit();
+            int size = writer.Commit();
+            socket.Send(span.Slice(0, size));
         }
 
         private static void Json(PipeWriter pipeWriter)

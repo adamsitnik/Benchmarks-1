@@ -4,6 +4,7 @@
 using System;
 using System.Buffers;
 using System.IO.Pipelines;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
@@ -16,6 +17,7 @@ namespace PlatformBenchmarks
 
         public PipeReader Reader { get; set; }
         public PipeWriter Writer { get; set; }
+        public Socket Socket { get; set; }
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
 
@@ -41,15 +43,7 @@ namespace PlatformBenchmarks
         {
             while (true)
             {
-                var task = Reader.ReadAsync();
-
-                if (!task.IsCompleted)
-                {
-                    // No more data in the input
-                    await OnReadCompletedAsync();
-                }
-
-                var result = await task;
+                var result = await Reader.ReadAsync();
                 var buffer = result.Buffer;
                 while (true)
                 {
