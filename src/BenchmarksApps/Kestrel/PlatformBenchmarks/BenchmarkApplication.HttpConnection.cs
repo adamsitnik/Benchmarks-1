@@ -50,7 +50,7 @@ namespace PlatformBenchmarks
 
                 if (!task.IsCompleted)
                 {
-                    Console.Write(bytesWritten);
+                    Console.WriteLine(bytesWritten);
                     bytesWritten = 0;
                     // No more data in the input
                     await OnReadCompletedAsync();
