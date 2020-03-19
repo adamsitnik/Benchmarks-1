@@ -25,6 +25,9 @@ namespace PlatformBenchmarks
             var schedulerField = typeof(Pipe).GetField("_readerScheduler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             schedulerField.SetValue(pipe, PipeScheduler.Inline);
 
+            schedulerField = typeof(Pipe).GetField("_writerScheduler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            schedulerField.SetValue(pipe, PipeScheduler.Inline);
+
             var httpConnection = new TConnection
             {
                 Reader = connection.Transport.Input,
