@@ -20,19 +20,13 @@ namespace PlatformBenchmarks
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
 
-        public Task ExecuteAsync()
-            => Task.Factory.StartNew(
-                        s => ((BenchmarkApplication)s!).ExecuteAsyncLoop().GetAwaiter().GetResult(),
-                        this,
-                        CancellationToken.None,
-                        TaskCreationOptions.LongRunning,
-                        TaskScheduler.Default);
-
-        public async Task ExecuteAsyncLoop()
+        public async Task ExecuteAsync()
         {
             try
             {
                 await ProcessRequestsAsync();
+
+                await OnReadCompletedAsync();
 
                 Reader.Complete();
             }
@@ -77,8 +71,6 @@ namespace PlatformBenchmarks
                     Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
-
-                await OnReadCompletedAsync();
             }
         }
 
