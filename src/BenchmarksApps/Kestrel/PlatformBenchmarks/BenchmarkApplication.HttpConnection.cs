@@ -46,7 +46,17 @@ namespace PlatformBenchmarks
 
             while (true)
             {
-                var result = await Reader.ReadAsync();
+                var task = Reader.ReadAsync();
+
+                if (!task.IsCompleted)
+                {
+                    Console.Write(bytesWritten);
+                    bytesWritten = 0;
+                    // No more data in the input
+                    await OnReadCompletedAsync();
+                }
+
+                var result = await task;
                 var buffer = result.Buffer;
 
                 while (true)
@@ -72,13 +82,6 @@ namespace PlatformBenchmarks
                     // No more input or incomplete data, Advance the Reader
                     Reader.AdvanceTo(buffer.Start, examined);
                     break;
-                }
-
-                if (bytesWritten > 512)
-                {
-                    await OnReadCompletedAsync();
-
-                    bytesWritten = 0;
                 }
             }
         }
