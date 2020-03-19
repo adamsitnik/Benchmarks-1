@@ -42,11 +42,12 @@ namespace PlatformBenchmarks
 
         private async Task ProcessRequestsAsync()
         {
+            int bytesWritten = 0;
+
             while (true)
             {
                 var result = await Reader.ReadAsync();
                 var buffer = result.Buffer;
-                int bytesWritten = 0;
 
                 while (true)
                 {
@@ -73,8 +74,12 @@ namespace PlatformBenchmarks
                     break;
                 }
 
-                Console.WriteLine(bytesWritten);
-                await OnReadCompletedAsync();
+                if (bytesWritten > 512)
+                {
+                    await OnReadCompletedAsync();
+
+                    bytesWritten = 0;
+                }
             }
         }
 
