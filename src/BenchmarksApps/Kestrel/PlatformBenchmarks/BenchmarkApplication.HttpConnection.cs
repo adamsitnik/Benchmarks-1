@@ -46,6 +46,7 @@ namespace PlatformBenchmarks
             {
                 var result = await Reader.ReadAsync();
                 var buffer = result.Buffer;
+                int bytesWritten = 0;
 
                 while (true)
                 {
@@ -56,7 +57,7 @@ namespace PlatformBenchmarks
 
                     if (_state == State.Body)
                     {
-                        await ProcessRequestAsync();
+                        bytesWritten += ProcessRequest();
 
                         _state = State.StartLine;
 
@@ -71,6 +72,9 @@ namespace PlatformBenchmarks
                     Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
+
+                Console.WriteLine(bytesWritten);
+                await OnReadCompletedAsync();
             }
         }
 

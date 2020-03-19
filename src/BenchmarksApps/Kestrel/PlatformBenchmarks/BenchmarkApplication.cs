@@ -54,25 +54,23 @@ namespace PlatformBenchmarks
             _requestType = requestType;
         }
 
-        public ValueTask ProcessRequestAsync()
+        public int ProcessRequest()
         {
             if (_requestType == RequestType.PlainText)
             {
-                PlainText(Writer);
+                return PlainText(Writer);
             }
             else if (_requestType == RequestType.Json)
             {
-                Json(Writer);
+                return Json(Writer);
             }
             else
             {
-                Default(Writer);
+                return Default(Writer);
             }
-
-            return default;
         }
 
-        private static void PlainText(PipeWriter pipeWriter)
+        private static int PlainText(PipeWriter pipeWriter)
         {
             var writer = GetWriter(pipeWriter);
 
@@ -97,10 +95,10 @@ namespace PlatformBenchmarks
 
             // Body
             writer.Write(_plainTextBody);
-            writer.Commit();
+            return writer.Commit();
         }
 
-        private static void Json(PipeWriter pipeWriter)
+        private static int Json(PipeWriter pipeWriter)
         {
             var writer = GetWriter(pipeWriter);
 
@@ -126,10 +124,10 @@ namespace PlatformBenchmarks
 
             // Body
             writer.Write(jsonPayload);
-            writer.Commit();
+            return writer.Commit();
         }
 
-        private static void Default(PipeWriter pipeWriter)
+        private static int Default(PipeWriter pipeWriter)
         {
             var writer = GetWriter(pipeWriter);
 
@@ -147,7 +145,7 @@ namespace PlatformBenchmarks
 
             // End of headers
             writer.Write(_crlf);
-            writer.Commit();
+            return writer.Commit();
         }
 
         private enum RequestType
