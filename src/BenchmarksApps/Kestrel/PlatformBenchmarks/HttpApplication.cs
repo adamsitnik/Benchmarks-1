@@ -22,7 +22,7 @@ namespace PlatformBenchmarks
             var pipeField = connection.Transport.Output.GetType().GetField("_pipe", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var pipe = pipeField.GetValue(connection.Transport.Output);
 
-            var schedulerField = typeof(Pipe).GetField("_writerScheduler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var schedulerField = typeof(Pipe).GetField("_readerScheduler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             schedulerField.SetValue(pipe, PipeScheduler.Inline);
 
             var httpConnection = new TConnection
