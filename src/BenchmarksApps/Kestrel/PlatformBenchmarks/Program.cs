@@ -3,6 +3,7 @@
 
 using System;
 using System.Net;
+using System.Threading;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 
@@ -16,6 +17,12 @@ namespace PlatformBenchmarks
             Console.WriteLine(BenchmarkApplication.Paths.Plaintext);
             Console.WriteLine(BenchmarkApplication.Paths.Json);
             DateHeader.SyncDateTimer();
+
+            if (int.TryParse(Environment.GetEnvironmentVariable("maxThreadCount"), out int max))
+            {
+                Console.WriteLine($"Max thread cound: {max}");
+                ThreadPool.SetMaxThreads(max, max);
+            }
 
             BuildWebHost(args).Run();
         }
