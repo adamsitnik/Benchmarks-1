@@ -20,7 +20,7 @@ namespace PlatformBenchmarks
 
             if (int.TryParse(Environment.GetEnvironmentVariable("maxThreadCount"), out int max))
             {
-                Console.WriteLine($"Max thread cound: {max} {ThreadPool.SetMaxThreads(max, max)}");
+                Console.WriteLine($"Thread count: <{max - 1}, {max}> {ThreadPool.SetMinThreads(max - 1, max - 1)} {ThreadPool.SetMaxThreads(max, max)}");
             }
 
             BuildWebHost(args).Run();
