@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -54,101 +55,175 @@ namespace PlatformBenchmarks
             _requestType = requestType;
         }
 
-        public ValueTask ProcessRequestAsync()
+        public void ProcessRequest(byte[] output)
         {
             if (_requestType == RequestType.PlainText)
             {
-                PlainText(Writer, Socket);
+                PlainText(output, Socket);
             }
             else if (_requestType == RequestType.Json)
             {
-                Json(Writer);
+                Json(output, Socket);
             }
             else
             {
-                Default(Writer);
+                Default(output, Socket);
             }
-
-            return default;
         }
 
-        private static void PlainText(PipeWriter pipeWriter, System.Net.Sockets.Socket socket)
+        private static void PlainText(byte[] output, System.Net.Sockets.Socket socket)
         {
-            var writer = GetWriter(pipeWriter);
-            var span = writer.Span;
+            int length = 0;
+            var span = new Span<byte>(output);
             // HTTP 1.1 OK
-            writer.Write(_http11OK);
+            var tmp = _http11OK.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Server headers
-            writer.Write(_headerServer);
+            tmp = _headerServer.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Date header
-            writer.Write(DateHeader.HeaderBytes);
+            tmp = DateHeader.HeaderBytes;
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Content-Type header
-            writer.Write(_headerContentTypeText);
+            tmp = _headerContentTypeText;
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Content-Length header
-            writer.Write(_headerContentLength);
-            writer.WriteNumeric((uint)_plainTextBody.Length);
+            tmp = _headerContentLength.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
+            if (BitConverter.IsLittleEndian)
+            {
+                BinaryPrimitives.WriteUInt32LittleEndian(span, (uint)_plainTextBody.Length);
+            }
+            else
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(span, (uint)_plainTextBody.Length);
+            }
+            span = span.Slice(sizeof(uint));
+            length += tmp.Length;
 
             // End of headers
-            writer.Write(_eoh);
+            tmp = _eoh.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Body
-            writer.Write(_plainTextBody);
-            int size = writer.Commit();
-            socket.Send(span.Slice(0, size));
+            tmp = _plainTextBody.AsSpan();
+            tmp.CopyTo(span);
+            // no slicing as we dont write anything more to this span
+            length += tmp.Length;
+
+            socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
 
-        private static void Json(PipeWriter pipeWriter)
+        private static void Json(byte[] output, System.Net.Sockets.Socket socket)
         {
-            var writer = GetWriter(pipeWriter);
-
+            int length = 0;
+            var span = new Span<byte>(output);
             // HTTP 1.1 OK
-            writer.Write(_http11OK);
+            var tmp = _http11OK.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Server headers
-            writer.Write(_headerServer);
+            tmp = _headerServer.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Date header
-            writer.Write(DateHeader.HeaderBytes);
+            tmp = DateHeader.HeaderBytes;
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Content-Type header
-            writer.Write(_headerContentTypeJson);
+            tmp = _headerContentTypeJson;
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Content-Length header
-            writer.Write(_headerContentLength);
+            tmp = _headerContentLength.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
+
             var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-            writer.WriteNumeric((uint)jsonPayload.Length);
+            if (BitConverter.IsLittleEndian)
+            {
+                BinaryPrimitives.WriteUInt32LittleEndian(span, (uint)jsonPayload.Length);
+            }
+            else
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(span, (uint)jsonPayload.Length);
+            }
+            span = span.Slice(sizeof(uint));
+            length += tmp.Length;
 
             // End of headers
-            writer.Write(_eoh);
+            tmp = _eoh.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Body
-            writer.Write(jsonPayload);
-            writer.Commit();
+            tmp = jsonPayload.AsSpan();
+            tmp.CopyTo(span);
+            length += jsonPayload.Length;
+
+            socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
 
-        private static void Default(PipeWriter pipeWriter)
+        private static void Default(byte[] output, System.Net.Sockets.Socket socket)
         {
-            var writer = GetWriter(pipeWriter);
-
+            int length = 0;
+            var span = new Span<byte>(output);
             // HTTP 1.1 OK
-            writer.Write(_http11OK);
+            var tmp = _http11OK.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Server headers
-            writer.Write(_headerServer);
+            tmp = _headerServer.AsSpan();
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Date header
-            writer.Write(DateHeader.HeaderBytes);
+            tmp = DateHeader.HeaderBytes;
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // Content-Length 0
-            writer.Write(_headerContentLengthZero);
+            tmp = _headerContentLengthZero;
+            tmp.CopyTo(span);
+            span = span.Slice(tmp.Length);
+            length += tmp.Length;
 
             // End of headers
-            writer.Write(_crlf);
-            writer.Commit();
+            tmp = _crlf;
+            tmp.CopyTo(span);
+            length += tmp.Length;
+
+            socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
 
         private enum RequestType

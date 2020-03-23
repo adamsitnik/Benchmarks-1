@@ -41,6 +41,8 @@ namespace PlatformBenchmarks
 
         private async Task ProcessRequestsAsync()
         {
+            byte[] output = new byte[16 * 1024];
+
             while (true)
             {
                 var result = await Reader.ReadAsync();
@@ -54,7 +56,7 @@ namespace PlatformBenchmarks
 
                     if (_state == State.Body)
                     {
-                        await ProcessRequestAsync();
+                        ProcessRequest(output);
 
                         _state = State.StartLine;
 
@@ -150,11 +152,6 @@ namespace PlatformBenchmarks
         {
         }
 #endif
-
-        public async ValueTask OnReadCompletedAsync()
-        {
-            await Writer.FlushAsync();
-        }
 
         private static void ThrowUnexpectedEndOfData()
         {
