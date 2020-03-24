@@ -73,7 +73,7 @@ namespace PlatformBenchmarks
 
         private static void PlainText(PipeWriter pipeWriter)
         {
-            var writer = GetWriter(pipeWriter);
+            var writer = GetWriter(pipeWriter, 0);
 
             // HTTP 1.1 OK
             writer.Write(_http11OK);
@@ -101,7 +101,7 @@ namespace PlatformBenchmarks
 
         private static void Json(PipeWriter pipeWriter)
         {
-            var writer = GetWriter(pipeWriter);
+            var writer = GetWriter(pipeWriter, 160);
 
             // HTTP 1.1 OK
             writer.Write(_http11OK);
@@ -133,7 +133,7 @@ namespace PlatformBenchmarks
 
         private static void Default(PipeWriter pipeWriter)
         {
-            var writer = GetWriter(pipeWriter);
+            var writer = GetWriter(pipeWriter, 100);
 
             // HTTP 1.1 OK
             writer.Write(_http11OK);
