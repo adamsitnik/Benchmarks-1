@@ -27,7 +27,8 @@ namespace PlatformBenchmarks
         private readonly static AsciiString _plainTextBody = "Hello, World!";
 
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions();
-        private static readonly byte[] JsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+        private static readonly JsonMessage _jsonMessage = new JsonMessage { message = "Hello, World!" };
+        private static readonly byte[] JsonPayload = JsonSerializer.SerializeToUtf8Bytes(_jsonMessage, SerializerOptions);
 
         public static class Paths
         {
@@ -127,7 +128,7 @@ namespace PlatformBenchmarks
             // Body
             using (var utf8jsonWriter = new Utf8JsonWriter(writer.Output))
             {
-                JsonSerializer.Serialize<JsonMessage>(utf8jsonWriter, new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+                JsonSerializer.Serialize<JsonMessage>(utf8jsonWriter, _jsonMessage, SerializerOptions);
             }
         }
 
@@ -159,7 +160,7 @@ namespace PlatformBenchmarks
             Json
         }
 
-        public struct JsonMessage
+        public class JsonMessage
         {
             public string message { get; set; }
         }
