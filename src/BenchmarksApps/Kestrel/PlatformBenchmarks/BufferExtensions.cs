@@ -26,18 +26,17 @@ namespace PlatformBenchmarks
             const byte AsciiDigitStart = (byte)'0';
 
             var span = buffer.Span;
-            var bytesLeftInBlock = span.Length;
 
             // Fast path, try copying to the available memory directly
             var advanceBy = 0;
             if (span.Length >= 3)
             {
-                if (number < 10 && bytesLeftInBlock >= 1)
+                if (number < 10)
                 {
                     span[0] = (byte)(number + AsciiDigitStart);
                     advanceBy = 1;
                 }
-                else if (number < 100 && bytesLeftInBlock >= 2)
+                else if (number < 100)
                 {
                     var tens = (byte)((number * 205u) >> 11); // div10, valid to 1028
 
@@ -45,7 +44,7 @@ namespace PlatformBenchmarks
                     span[1] = (byte)(number - (tens * 10) + AsciiDigitStart);
                     advanceBy = 2;
                 }
-                else if (number < 1000 && bytesLeftInBlock >= 3)
+                else if (number < 1000)
                 {
                     var digit0 = (byte)((number * 41u) >> 12); // div100, valid to 1098
                     var digits01 = (byte)((number * 205u) >> 11); // div10, valid to 1028
