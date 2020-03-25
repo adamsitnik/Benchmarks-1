@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
@@ -164,15 +165,40 @@ namespace PlatformBenchmarks
 
             // Content-Length header
             CopyTo(_headerContentLength.AsSpan(), ref span, ref length);
-            var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-            WriteNumeric((uint)jsonPayload.Length, ref span, ref length);
+            //var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+            WriteNumeric((uint)27, ref span, ref length);
 
             // End of headers
             CopyTo(_eoh.AsSpan(), ref span, ref length);
 
             // Body
-            CopyTo(jsonPayload.AsSpan(), ref span, ref length);
+            using (var utf8Writer = new Utf8JsonWriter(new ArrayBufferWriter(output, length)))
+            {
+                JsonSerializer.Serialize<JsonMessage>(utf8Writer, new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+                length += 27;
+            }
+            
             socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
+        }
+
+        private struct ArrayBufferWriter : IBufferWriter<byte>
+        {
+            private byte[] _output;
+            private int _offset;
+
+            public ArrayBufferWriter(byte[] output, int offset)
+            {
+                _output = output;
+                _offset = offset;
+            }
+
+            internal int Offset => _offset;
+
+            public void Advance(int count) => _offset += count;
+
+            public Memory<byte> GetMemory(int sizeHint = 0) => new Memory<byte>(_output, _offset, _output.Length - _offset);
+
+            public Span<byte> GetSpan(int sizeHint = 0) => new Span<byte>(_output, _offset, _output.Length - _offset);
         }
 
         private static void Default(byte[] output, System.Net.Sockets.Socket socket)
