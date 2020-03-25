@@ -57,32 +57,32 @@ namespace PlatformBenchmarks
             _requestType = requestType;
         }
 
-        public void ProcessRequest(byte[] output)
+        public void ProcessRequest(byte[] output, ref int offset)
         {
             if (_requestType == RequestType.PlainText)
             {
-                PlainText(output, Socket);
+                PlainText(output, ref offset);
             }
             else if (_requestType == RequestType.Json)
             {
-                Json(output, Socket);
+                Json(output, ref offset);
             }
             else
             {
-                Default(output, Socket);
+                Default(output, ref offset);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void CopyTo(in ReadOnlySpan<byte> from, ref Span<byte> to, ref int length)
+        private static void CopyTo(in ReadOnlySpan<byte> from, ref Span<byte> to, ref int offset)
         {
             from.CopyTo(to);
             to = to.Slice(from.Length);
-            length += from.Length;
+            offset += from.Length;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void WriteNumeric(uint number, ref Span<byte> to, ref int length)
+        private static void WriteNumeric(uint number, ref Span<byte> to, ref int offset)
         {
             const byte AsciiDigitStart = (byte)'0';
 
@@ -115,70 +115,65 @@ namespace PlatformBenchmarks
             }
 
             to = to.Slice(advanceBy);
-            length += advanceBy;
+            offset += advanceBy;
         }
 
-        private static void PlainText(byte[] output, System.Net.Sockets.Socket socket)
+        private static void PlainText(byte[] output, ref int offset)
         {
-            int length = 0;
-            var span = new Span<byte>(output);
+            var span = new Span<byte>(output, offset, output.Length - offset);
+
             // HTTP 1.1 OK
-            CopyTo(_http11OK.AsSpan(), ref span, ref length);
+            CopyTo(_http11OK, ref span, ref offset);
 
             // Server headers
-            CopyTo(_headerServer.AsSpan(), ref span, ref length);
+            CopyTo(_headerServer, ref span, ref offset);
 
             // Date header
-            CopyTo(DateHeader.HeaderBytes, ref span, ref length);
+            CopyTo(DateHeader.HeaderBytes, ref span, ref offset);
 
             // Content-Type header
-            CopyTo(_headerContentTypeText, ref span, ref length);
+            CopyTo(_headerContentTypeText, ref span, ref offset);
 
             // Content-Length header
-            CopyTo(_headerContentLength, ref span, ref length);
-            WriteNumeric((uint)_plainTextBody.Length, ref span, ref length);
+            CopyTo(_headerContentLength, ref span, ref offset);
+            WriteNumeric((uint)_plainTextBody.Length, ref span, ref offset);
 
             // End of headers
-            CopyTo(_eoh.AsSpan(), ref span, ref length);
+            CopyTo(_eoh, ref span, ref offset);
 
             // Body
-            CopyTo(_plainTextBody.AsSpan(), ref span, ref length);
-
-            socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
+            CopyTo(_plainTextBody, ref span, ref offset);
         }
 
-        private static void Json(byte[] output, System.Net.Sockets.Socket socket)
+        private static void Json(byte[] output, ref int offset)
         {
-            int length = 0;
-            var span = new Span<byte>(output);
+            var span = new Span<byte>(output, offset, output.Length - offset);
             // HTTP 1.1 OK
-            CopyTo(_http11OK.AsSpan(), ref span, ref length);
+            CopyTo(_http11OK, ref span, ref offset);
 
             // Server headers
-            CopyTo(_headerServer.AsSpan(), ref span, ref length);
+            CopyTo(_headerServer, ref span, ref offset);
 
             // Date header
-            CopyTo(DateHeader.HeaderBytes, ref span, ref length);
+            CopyTo(DateHeader.HeaderBytes, ref span, ref offset);
 
             // Content-Type header
-            CopyTo(_headerContentTypeJson, ref span, ref length);
+            CopyTo(_headerContentTypeJson, ref span, ref offset);
 
             // Content-Length header
-            CopyTo(_headerContentLength.AsSpan(), ref span, ref length);
+            CopyTo(_headerContentLength, ref span, ref offset);
             //var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-            WriteNumeric((uint)27, ref span, ref length);
+            WriteNumeric((uint)27, ref span, ref offset);
 
             // End of headers
-            CopyTo(_eoh.AsSpan(), ref span, ref length);
+            CopyTo(_eoh, ref span, ref offset);
 
             // Body
-            using (var utf8Writer = new Utf8JsonWriter(new ArrayBufferWriter(output, length)))
+            using (var utf8Writer = new Utf8JsonWriter(new ArrayBufferWriter(output, offset)))
             {
                 JsonSerializer.Serialize<JsonMessage>(utf8Writer, new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-                length += 27;
+                offset += 27;
             }
-            
-            socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
 
         private struct ArrayBufferWriter : IBufferWriter<byte>
@@ -201,26 +196,24 @@ namespace PlatformBenchmarks
             public Span<byte> GetSpan(int sizeHint = 0) => new Span<byte>(_output, _offset, _output.Length - _offset);
         }
 
-        private static void Default(byte[] output, System.Net.Sockets.Socket socket)
+        private static void Default(byte[] output, ref int offset)
         {
-            int length = 0;
             var span = new Span<byte>(output);
+
             // HTTP 1.1 OK
-            CopyTo(_http11OK.AsSpan(), ref span, ref length);
+            CopyTo(_http11OK.AsSpan(), ref span, ref offset);
 
             // Server headers
-            CopyTo(_headerServer.AsSpan(), ref span, ref length);
+            CopyTo(_headerServer.AsSpan(), ref span, ref offset);
 
             // Date header
-            CopyTo(DateHeader.HeaderBytes, ref span, ref length);
+            CopyTo(DateHeader.HeaderBytes, ref span, ref offset);
 
             // Content-Length 0
-            CopyTo(_headerContentLengthZero, ref span, ref length);
+            CopyTo(_headerContentLengthZero, ref span, ref offset);
 
             // End of headers
-            CopyTo(_crlf, ref span, ref length);
-
-            socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
+            CopyTo(_crlf, ref span, ref offset);
         }
 
         private enum RequestType

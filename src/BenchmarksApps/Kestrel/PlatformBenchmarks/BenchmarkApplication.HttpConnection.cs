@@ -47,6 +47,8 @@ namespace PlatformBenchmarks
             {
                 var result = await Reader.ReadAsync();
                 var buffer = result.Buffer;
+                int offset = 0;
+
                 while (true)
                 {
                     if (!ParseHttpRequest(ref buffer, result.IsCompleted, out var examined))
@@ -56,7 +58,7 @@ namespace PlatformBenchmarks
 
                     if (_state == State.Body)
                     {
-                        ProcessRequest(output);
+                        ProcessRequest(output, ref offset);
 
                         _state = State.StartLine;
 
@@ -71,6 +73,8 @@ namespace PlatformBenchmarks
                     Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
+
+                Socket.Send(output, 0, offset, SocketFlags.None, out _);
             }
         }
 
