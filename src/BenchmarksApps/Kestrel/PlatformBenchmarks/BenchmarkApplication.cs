@@ -176,7 +176,7 @@ namespace PlatformBenchmarks
             }
         }
 
-        private struct ArrayBufferWriter : IBufferWriter<byte>
+        private sealed class ArrayBufferWriter : IBufferWriter<byte>
         {
             private byte[] _output;
             private int _offset;
