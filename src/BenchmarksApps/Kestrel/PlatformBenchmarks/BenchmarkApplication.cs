@@ -81,19 +81,40 @@ namespace PlatformBenchmarks
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void WriteNumeric(uint value, ref Span<byte> to, ref int length)
+        private static void WriteNumeric(uint number, ref Span<byte> to, ref int length)
         {
-            if (BitConverter.IsLittleEndian)
+            const byte AsciiDigitStart = (byte)'0';
+
+            int advanceBy = 0;
+            if (to.Length >= 3)
             {
-                BinaryPrimitives.WriteUInt32LittleEndian(to, value);
-            }
-            else
-            {
-                BinaryPrimitives.WriteUInt32BigEndian(to, value);
+                if (number < 10)
+                {
+                    to[0] = (byte)(number + AsciiDigitStart);
+                    advanceBy = 1;
+                }
+                else if (number < 100)
+                {
+                    var tens = (byte)((number * 205u) >> 11); // div10, valid to 1028
+
+                    to[0] = (byte)(tens + AsciiDigitStart);
+                    to[1] = (byte)(number - (tens * 10) + AsciiDigitStart);
+                    advanceBy = 2;
+                }
+                else if (number < 1000)
+                {
+                    var digit0 = (byte)((number * 41u) >> 12); // div100, valid to 1098
+                    var digits01 = (byte)((number * 205u) >> 11); // div10, valid to 1028
+
+                    to[0] = (byte)(digit0 + AsciiDigitStart);
+                    to[1] = (byte)(digits01 - (digit0 * 10) + AsciiDigitStart);
+                    to[2] = (byte)(number - (digits01 * 10) + AsciiDigitStart);
+                    advanceBy = 3;
+                }
             }
 
-            to = to.Slice(sizeof(uint));
-            length += sizeof(uint);
+            to = to.Slice(advanceBy);
+            length += advanceBy;
         }
 
         private static void PlainText(byte[] output, System.Net.Sockets.Socket socket)
