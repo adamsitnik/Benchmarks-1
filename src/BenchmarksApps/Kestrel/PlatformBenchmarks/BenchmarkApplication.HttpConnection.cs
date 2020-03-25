@@ -11,47 +11,40 @@ using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 
 namespace PlatformBenchmarks
 {
-    public partial class BenchmarkApplication : IHttpConnection
+    public partial class BenchmarkApplication
     {
+        private readonly Socket _socket;
         private State _state;
 
-        public PipeReader Reader { get; set; }
-        public PipeWriter Writer { get; set; }
-        public Socket Socket { get; set; }
+        public BenchmarkApplication(Socket socket)
+        {
+            _socket = socket;
+        }
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
 
-        public async Task ExecuteAsync()
-        {
-            try
-            {
-                await ProcessRequestsAsync();
-
-                Reader.Complete();
-            }
-            catch (Exception ex)
-            {
-                Reader.Complete(ex);
-            }
-            finally
-            {
-                Writer.Complete();
-            }
-        }
-
-        private async Task ProcessRequestsAsync()
+        internal async Task ProcessRequestsAsync()
         {
             byte[] output = new byte[16 * 1024];
+            byte[] input = new byte[16 * 1024];
+
+            var socket = _socket;
 
             while (true)
             {
-                var result = await Reader.ReadAsync();
-                var buffer = result.Buffer;
+                var segment = new Memory<byte>(input);
+                var bytesRead = await socket.ReceiveAsync(segment, SocketFlags.None);
+                if (bytesRead == 0)
+                {
+                    continue;
+                }
+                
+                var buffer = new ReadOnlySequence<byte>(input, 0, bytesRead);
                 int offset = 0;
 
                 while (true)
                 {
-                    if (!ParseHttpRequest(ref buffer, result.IsCompleted, out var examined))
+                    if (!ParseHttpRequest(ref buffer, true, out var examined))
                     {
                         return;
                     }
@@ -70,11 +63,11 @@ namespace PlatformBenchmarks
                     }
 
                     // No more input or incomplete data, Advance the Reader
-                    Reader.AdvanceTo(buffer.Start, examined);
+                    //Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
 
-                Socket.Send(output, 0, offset, SocketFlags.None, out _);
+                socket.Send(output, 0, offset, SocketFlags.None, out _);
             }
         }
 

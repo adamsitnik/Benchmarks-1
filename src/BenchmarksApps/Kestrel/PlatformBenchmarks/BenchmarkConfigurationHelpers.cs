@@ -14,27 +14,6 @@ namespace PlatformBenchmarks
         public static IWebHostBuilder UseBenchmarksConfiguration(this IWebHostBuilder builder, IConfiguration configuration)
         {
             builder.UseConfiguration(configuration);
-
-            // Handle the transport type
-            var webHost = builder.GetSetting("KestrelTransport");
-
-            // Handle the thread count
-            var threadCountRaw = builder.GetSetting("threadCount");
-            int? theadCount = null;
-
-            if (!string.IsNullOrEmpty(threadCountRaw) && Int32.TryParse(threadCountRaw, out var value))
-            {
-                theadCount = value;
-            }
-
-            builder.UseSockets(options =>
-            {
-                if (theadCount.HasValue)
-                {
-                    options.IOQueueCount = theadCount.Value;
-                }
-            });
-
             return builder;
         }
 
