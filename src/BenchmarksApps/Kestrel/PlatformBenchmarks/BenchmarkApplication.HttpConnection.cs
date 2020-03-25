@@ -41,21 +41,17 @@ namespace PlatformBenchmarks
 
         private async Task ProcessRequestsAsync()
         {
-            var socket = Socket;
-
             byte[] output = new byte[16 * 1024];
-            byte[] input = new byte[16 * 1024];
 
             while (true)
             {
-                var bytesRead = await socket.ReceiveAsync(new ArraySegment<byte>(input), SocketFlags.None);
-                
-                var buffer = new ReadOnlySequence<byte>(input, 0, bytesRead);
+                var result = await Reader.ReadAsync();
+                var buffer = result.Buffer;
                 int offset = 0;
 
                 while (true)
                 {
-                    if (!ParseHttpRequest(ref buffer, true, out var examined))
+                    if (!ParseHttpRequest(ref buffer, result.IsCompleted, out var examined))
                     {
                         return;
                     }
@@ -74,10 +70,11 @@ namespace PlatformBenchmarks
                     }
 
                     // No more input or incomplete data, Advance the Reader
+                    Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
 
-                socket.Send(output, 0, offset, SocketFlags.None, out _);
+                Socket.Send(output, 0, offset, SocketFlags.None, out _);
             }
         }
 
