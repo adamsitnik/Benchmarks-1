@@ -4,6 +4,7 @@
 using System;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -71,61 +72,55 @@ namespace PlatformBenchmarks
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CopyTo(in ReadOnlySpan<byte> from, ref Span<byte> to, ref int length)
+        {
+            from.CopyTo(to);
+            to = to.Slice(from.Length);
+            length += from.Length;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void WriteNumeric(uint value, ref Span<byte> to, ref int length)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                BinaryPrimitives.WriteUInt32LittleEndian(to, value);
+            }
+            else
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(to, value);
+            }
+
+            to = to.Slice(sizeof(uint));
+            length += sizeof(uint);
+        }
+
         private static void PlainText(byte[] output, System.Net.Sockets.Socket socket)
         {
             int length = 0;
             var span = new Span<byte>(output);
             // HTTP 1.1 OK
-            var tmp = _http11OK.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_http11OK.AsSpan(), ref span, ref length);
 
             // Server headers
-            tmp = _headerServer.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_headerServer.AsSpan(), ref span, ref length);
 
             // Date header
-            tmp = DateHeader.HeaderBytes;
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(DateHeader.HeaderBytes, ref span, ref length);
 
             // Content-Type header
-            tmp = _headerContentTypeText;
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_headerContentTypeText, ref span, ref length);
 
             // Content-Length header
-            tmp = _headerContentLength.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
-            if (BitConverter.IsLittleEndian)
-            {
-                BinaryPrimitives.WriteUInt32LittleEndian(span, (uint)_plainTextBody.Length);
-            }
-            else
-            {
-                BinaryPrimitives.WriteUInt32BigEndian(span, (uint)_plainTextBody.Length);
-            }
-            span = span.Slice(sizeof(uint));
-            length += tmp.Length;
+            CopyTo(_headerContentLength, ref span, ref length);
+            WriteNumeric((uint)_plainTextBody.Length, ref span, ref length);
 
             // End of headers
-            tmp = _eoh.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_eoh.AsSpan(), ref span, ref length);
 
             // Body
-            tmp = _plainTextBody.AsSpan();
-            tmp.CopyTo(span);
-            // no slicing as we dont write anything more to this span
-            length += tmp.Length;
+            CopyTo(_plainTextBody.AsSpan(), ref span, ref length);
 
             socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
@@ -135,58 +130,27 @@ namespace PlatformBenchmarks
             int length = 0;
             var span = new Span<byte>(output);
             // HTTP 1.1 OK
-            var tmp = _http11OK.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_http11OK.AsSpan(), ref span, ref length);
 
             // Server headers
-            tmp = _headerServer.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_headerServer.AsSpan(), ref span, ref length);
 
             // Date header
-            tmp = DateHeader.HeaderBytes;
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(DateHeader.HeaderBytes, ref span, ref length);
 
             // Content-Type header
-            tmp = _headerContentTypeJson;
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_headerContentTypeJson, ref span, ref length);
 
             // Content-Length header
-            tmp = _headerContentLength.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
-
+            CopyTo(_headerContentLength.AsSpan(), ref span, ref length);
             var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-            if (BitConverter.IsLittleEndian)
-            {
-                BinaryPrimitives.WriteUInt32LittleEndian(span, (uint)jsonPayload.Length);
-            }
-            else
-            {
-                BinaryPrimitives.WriteUInt32BigEndian(span, (uint)jsonPayload.Length);
-            }
-            span = span.Slice(sizeof(uint));
-            length += tmp.Length;
+            WriteNumeric((uint)jsonPayload.Length, ref span, ref length);
 
             // End of headers
-            tmp = _eoh.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_eoh.AsSpan(), ref span, ref length);
 
             // Body
-            tmp = jsonPayload.AsSpan();
-            tmp.CopyTo(span);
-            length += jsonPayload.Length;
-
+            CopyTo(jsonPayload.AsSpan(), ref span, ref length);
             socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
 
@@ -195,33 +159,19 @@ namespace PlatformBenchmarks
             int length = 0;
             var span = new Span<byte>(output);
             // HTTP 1.1 OK
-            var tmp = _http11OK.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_http11OK.AsSpan(), ref span, ref length);
 
             // Server headers
-            tmp = _headerServer.AsSpan();
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_headerServer.AsSpan(), ref span, ref length);
 
             // Date header
-            tmp = DateHeader.HeaderBytes;
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(DateHeader.HeaderBytes, ref span, ref length);
 
             // Content-Length 0
-            tmp = _headerContentLengthZero;
-            tmp.CopyTo(span);
-            span = span.Slice(tmp.Length);
-            length += tmp.Length;
+            CopyTo(_headerContentLengthZero, ref span, ref length);
 
             // End of headers
-            tmp = _crlf;
-            tmp.CopyTo(span);
-            length += tmp.Length;
+            CopyTo(_crlf, ref span, ref length);
 
             socket.Send(output, 0, length, System.Net.Sockets.SocketFlags.None, out _);
         }
