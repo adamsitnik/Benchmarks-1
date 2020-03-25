@@ -29,7 +29,14 @@ namespace PlatformBenchmarks
 
         private readonly static AsciiString _plainTextBody = "Hello, World!";
 
-        private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions();
+        private static readonly JsonSerializerOptions SerializerOptions = CreateSerializeOptions();
+
+        private static JsonSerializerOptions CreateSerializeOptions()
+        {
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new AsciiStringConverter());
+            return options;
+        }
 
         public static class Paths
         {
@@ -171,7 +178,7 @@ namespace PlatformBenchmarks
             // Body
             using (var utf8Writer = new Utf8JsonWriter(new ArrayBufferWriter(output, offset)))
             {
-                JsonSerializer.Serialize<JsonMessage>(utf8Writer, new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+                JsonSerializer.Serialize<JsonMessage>(utf8Writer, new JsonMessage { message = _plainTextBody }, SerializerOptions);
                 offset += 27;
             }
         }
@@ -225,7 +232,18 @@ namespace PlatformBenchmarks
 
         public struct JsonMessage
         {
-            public string message { get; set; }
+            public AsciiString message { get; set; }
         }
+    }
+
+    internal class AsciiStringConverter : JsonConverter<AsciiString>
+    {
+        public AsciiStringConverter() { }
+
+        public override AsciiString Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => new AsciiString(reader.GetString());
+
+        public override void Write(Utf8JsonWriter writer, AsciiString value, JsonSerializerOptions options)
+            => writer.WriteStringValue(utf8Value: value.AsSpan());
     }
 }
