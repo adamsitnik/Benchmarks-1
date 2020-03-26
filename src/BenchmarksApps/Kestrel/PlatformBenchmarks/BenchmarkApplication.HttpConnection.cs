@@ -72,7 +72,8 @@ namespace PlatformBenchmarks
                 }
 
                 Console.WriteLine($"Sending {offset} for socket fd {_socket.Handle.ToInt32().ToString()}");
-                socket.Send(output, 0, offset, SocketFlags.None, out _);
+                int sent = socket.Send(output, 0, offset, SocketFlags.None, out var error);
+                Console.WriteLine($"Send returned {sent} {error}");
             }
         }
 
