@@ -16,10 +16,7 @@ namespace PlatformBenchmarks
         private readonly Socket _socket;
         private State _state;
 
-        public BenchmarkApplication(Socket socket)
-        {
-            _socket = socket;
-        }
+        public BenchmarkApplication(Socket socket) => _socket = socket;
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
 
@@ -50,6 +47,7 @@ namespace PlatformBenchmarks
                 {
                     if (!ParseHttpRequest(ref buffer, true, out var examined))
                     {
+                        Console.WriteLine("Done");
                         return;
                     }
 

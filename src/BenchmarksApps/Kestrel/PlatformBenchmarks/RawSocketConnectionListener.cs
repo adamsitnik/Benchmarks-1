@@ -23,7 +23,11 @@ namespace PlatformBenchmarks
         public EndPoint EndPoint { get; private set; }
 
         public ValueTask UnbindAsync(CancellationToken cancellationToken = new CancellationToken())
-            => DisposeAsync();
+        {
+            Console.WriteLine("Unbind!");
+
+            return DisposeAsync();
+        }
         
         public ValueTask DisposeAsync()
         {
@@ -63,8 +67,9 @@ namespace PlatformBenchmarks
                     // A call was made to UnbindAsync/DisposeAsync just return null which signals we're done
                     return null;
                 }
-                catch (SocketException)
+                catch (SocketException se)
                 {
+                    Console.WriteLine($"Socket exception! {se}");
                     // The connection got reset while it was in the backlog, so we try again.
                     // _trace.ConnectionReset(connectionId: "(null)");
                 }
