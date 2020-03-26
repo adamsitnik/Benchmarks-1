@@ -14,11 +14,24 @@ namespace PlatformBenchmarks
     public partial class BenchmarkApplication
     {
         private readonly Socket _socket;
+        private readonly SocketAwaitableEventArgs _awaitableEventArgs = new SocketAwaitableEventArgs();
         private State _state;
 
         public BenchmarkApplication(Socket socket) => _socket = socket;
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
+        
+        private SocketAwaitableEventArgs WaitForDataAsync()
+        {
+            _awaitableEventArgs.SetBuffer(Memory<byte>.Empty);
+
+            if (!_socket.ReceiveAsync(_awaitableEventArgs))
+            {
+                _awaitableEventArgs.Complete();
+            }
+
+            return _awaitableEventArgs;
+        }
 
         internal async Task ProcessRequestsAsync()
         {
@@ -28,16 +41,18 @@ namespace PlatformBenchmarks
             byte[] input = new byte[16 * 1024];
 
             var socket = _socket;
+            var segment = new Memory<byte>(input);
 
             while (true)
             {
-                var segment = new Memory<byte>(input);
+                await WaitForDataAsync();
+                
                 var bytesRead = await socket.ReceiveAsync(segment, SocketFlags.None);
 
                 Console.WriteLine($"Received {bytesRead} for socket fd {_socket.Handle.ToInt32().ToString()}");
                 if (bytesRead == 0)
                 {
-                    continue;
+                    return;
                 }
                 
                 var buffer = new ReadOnlySequence<byte>(input, 0, bytesRead);
