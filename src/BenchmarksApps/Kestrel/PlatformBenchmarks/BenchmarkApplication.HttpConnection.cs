@@ -25,6 +25,8 @@ namespace PlatformBenchmarks
 
         internal async Task ProcessRequestsAsync()
         {
+            Console.WriteLine($"Started processing requests for socket fd {_socket.Handle.ToInt32().ToString()}");
+
             byte[] output = new byte[16 * 1024];
             byte[] input = new byte[16 * 1024];
 
@@ -34,6 +36,8 @@ namespace PlatformBenchmarks
             {
                 var segment = new Memory<byte>(input);
                 var bytesRead = await socket.ReceiveAsync(segment, SocketFlags.None);
+
+                Console.WriteLine($"Received {bytesRead} for socket fd {_socket.Handle.ToInt32().ToString()}");
                 if (bytesRead == 0)
                 {
                     continue;

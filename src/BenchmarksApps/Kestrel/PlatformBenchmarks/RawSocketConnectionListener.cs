@@ -39,6 +39,8 @@ namespace PlatformBenchmarks
                 {
                     var acceptSocket = await _listenSocket.AcceptAsync();
 
+                    Console.WriteLine($"Accepted socket fd {acceptSocket.Handle.ToInt32().ToString()}");
+
                     // Only apply no delay to Tcp based endpoints
                     if (acceptSocket.LocalEndPoint is IPEndPoint)
                     {
