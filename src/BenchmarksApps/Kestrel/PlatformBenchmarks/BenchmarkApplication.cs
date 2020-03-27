@@ -33,7 +33,7 @@ namespace PlatformBenchmarks
 
         private static byte[] PrepareJson()
         {
-            var results = new byte[256];
+            var results = new byte[512];
             int length = 0;
             RealJson(results, ref length);
 
