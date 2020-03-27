@@ -558,7 +558,7 @@ namespace BenchmarkServer
                                             if (now - job.LastDriverCommunicationUtc > DriverTimeout)
                                             {
                                                 Log.WriteLine($"[Heartbeat] Driver didn't communicate for {DriverTimeout}. Halting job.");
-                                                if (job.State == ServerState.Running)
+                                                if (job.State == ServerState.Running || job.State == ServerState.TraceCollected)
                                                 {
                                                     Log.WriteLine($"{job.State} -> Stopping");
                                                     job.State = ServerState.Stopping;
@@ -567,14 +567,12 @@ namespace BenchmarkServer
 
                                             if (!String.IsNullOrEmpty(dockerImage))
                                             {
-                                                string inspect = "";
-
                                                 // Check the container is still running
-                                                ProcessUtil.Run("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
-                                                    outputDataReceived: d => inspect += d,
+                                                var inspectResult = ProcessUtil.Run("docker", "inspect -f {{.State.Running}} " + dockerContainerId, 
+                                                    captureOutput: true,
                                                     log: false, throwOnError: false);
 
-                                                if (String.IsNullOrEmpty(inspect) || inspect.Contains("false"))
+                                                if (String.Equals(inspectResult.StandardOutput.Trim(), "false"))
                                                 {
                                                     Log.WriteLine($"The Docker container has stopped");
                                                     Log.WriteLine($"{job.State} -> Stopping");
@@ -2430,6 +2428,7 @@ namespace BenchmarkServer
                             if (await DownloadFileAsync(url, runtimePath, maxRetries: 3, timeout: 60, throwOnError: false))
                             {
                                 found = true;
+                                break;
                             }
                             else
                             {
@@ -2479,6 +2478,17 @@ namespace BenchmarkServer
                 {
                     Log.WriteLine("ERROR: Failed to download crossgen. " + e.ToString());
                 }
+            }
+
+            // Download mono runtime
+            if (job.UseMonoRuntime)
+            {
+                if (!job.SelfContained)
+                {
+                    throw new Exception("The job is trying to use the mono runtime but was not configured as self-contained.");
+                }
+
+                await UseMonoRuntimeAsync(runtimeVersion, outputFolder);
             }
 
             // Copy all output attachments
@@ -3376,6 +3386,65 @@ namespace BenchmarkServer
             if (dotnetTraceTask == null)
             {
                 throw new Exception("NULL!!!");
+            }
+        }
+
+        private static async Task UseMonoRuntimeAsync(string runtimeVersion, string outputFolder)
+        {
+            var monoRuntimeUrl = String.Format(_runtimeMonoPackageUrl, runtimeVersion);
+
+            try
+            {
+
+                var packageName = "runtime.linux-x64.microsoft.netcore.runtime.mono";
+                var runtimePath = Path.Combine(_rootTempDir, "RuntimePackages", $"{packageName}.{runtimeVersion}.nupkg");
+                
+                // Ensure the folder already exists
+                Directory.CreateDirectory(Path.GetDirectoryName(runtimePath));
+
+                if (!File.Exists(runtimePath))
+                {
+                    Log.WriteLine($"Downloading mono runtime package");
+
+                    var found = false;
+                    foreach (var feed in _runtimeFeedUrls)
+                    {
+                        var url = $"https://{feed}/flatcontainer/{packageName}/{runtimeVersion}/{packageName}.{runtimeVersion}.nupkg";
+
+                        if (await DownloadFileAsync(url, runtimePath, maxRetries: 3, timeout: 60, throwOnError: false))
+                        {
+                            found = true;
+                            break;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        throw new Exception("Mono runtime package not found");
+                    }
+                }
+                else
+                {
+                    Log.WriteLine($"Found mono runtime package at '{runtimePath}'");
+                }
+
+                using (var archive = ZipFile.OpenRead(runtimePath))
+                {
+                    var systemCoreLib = archive.GetEntry("runtimes/linux-x64/lib/netstandard1.0/System.Private.CoreLib.dll");
+                    systemCoreLib.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
+
+                    var libcoreclr = archive.GetEntry("runtimes/linux-x64/native/libcoreclr.so");
+                    libcoreclr.ExtractToFile(Path.Combine(outputFolder, "libcoreclr.so"), true);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.WriteLine("ERROR: Failed to download mono runtime. " + e.ToString());
+                throw;
             }
         }
 
