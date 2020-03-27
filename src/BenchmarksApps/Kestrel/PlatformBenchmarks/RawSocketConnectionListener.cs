@@ -51,11 +51,7 @@ namespace PlatformBenchmarks
                         acceptSocket.NoDelay = _options.NoDelay;
                     }
 
-                    var connection = new RawSocketConnection(acceptSocket, _options);
-
-                    connection.Start();
-
-                    return connection;
+                    return new RawSocketConnection(acceptSocket, _options);
                 }
                 catch (ObjectDisposedException)
                 {

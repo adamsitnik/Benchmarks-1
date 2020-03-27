@@ -46,7 +46,7 @@ namespace PlatformBenchmarks
                 
                     options.Listen(endPoint, builder =>
                     {
-                        //builder.UseHttpApplication<BenchmarkApplication>();
+                        builder.UseHttpApplication();
                     });
                 })
                 .ConfigureServices(services =>

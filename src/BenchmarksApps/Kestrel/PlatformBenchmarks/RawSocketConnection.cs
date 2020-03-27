@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
@@ -10,16 +9,14 @@ namespace PlatformBenchmarks
 {
     public class RawSocketConnection : ConnectionContext
     {
-        private readonly Socket _acceptSocket;
+        private readonly Socket _socket;
         private readonly SocketTransportOptions _options;
-        private readonly BenchmarkApplication _benchmarkApplication;
-        private Task _processingTask;
 
-        public RawSocketConnection(Socket acceptSocket, SocketTransportOptions options)
+        public RawSocketConnection(Socket socket, SocketTransportOptions options)
         {
-            _acceptSocket = acceptSocket;
+            _socket = socket;
             _options = options;
-            _benchmarkApplication = new BenchmarkApplication(_acceptSocket);
+            Features = new FeatureCollection();
         }
 
         public override string ConnectionId { get; set; }
@@ -27,6 +24,6 @@ namespace PlatformBenchmarks
         public override IDictionary<object, object> Items { get; set; }
         public override IDuplexPipe Transport { get; set; }
 
-        public void Start() => _processingTask = _benchmarkApplication.StartAsync();
+        public Socket Socket => _socket;
     }
 }
