@@ -47,8 +47,6 @@ namespace PlatformBenchmarks
 
         private async Task ProcessRequestsAsync()
         {
-            Console.WriteLine($"Started processing requests for socket fd {_socket.Handle.ToInt32().ToString()}");
-
             byte[] output = new byte[16 * 1024];
             byte[] input = new byte[16 * 1024];
 
@@ -60,8 +58,6 @@ namespace PlatformBenchmarks
                 await WaitForDataAsync(Memory<byte>.Empty);
                 
                 var bytesRead = await WaitForDataAsync(segment);
-
-                Console.WriteLine($"Received {bytesRead} for socket fd {_socket.Handle.ToInt32().ToString()}");
                 if (bytesRead == 0)
                 {
                     return;
@@ -74,7 +70,6 @@ namespace PlatformBenchmarks
                 {
                     if (!ParseHttpRequest(ref buffer, true, out var examined))
                     {
-                        Console.WriteLine("Done");
                         return;
                     }
 
@@ -92,13 +87,10 @@ namespace PlatformBenchmarks
                     }
 
                     // No more input or incomplete data, Advance the Reader
-                    //Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
 
-                Console.WriteLine($"Sending {offset} for socket fd {_socket.Handle.ToInt32().ToString()}");
-                int sent = socket.Send(output, 0, offset, SocketFlags.None, out var error);
-                Console.WriteLine($"Send returned {sent} {error}");
+                socket.Send(output, 0, offset, SocketFlags.None, out var error);
             }
         }
 

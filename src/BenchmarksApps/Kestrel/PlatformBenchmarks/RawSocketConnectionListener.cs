@@ -22,13 +22,8 @@ namespace PlatformBenchmarks
 
         public EndPoint EndPoint { get; private set; }
 
-        public ValueTask UnbindAsync(CancellationToken cancellationToken = new CancellationToken())
-        {
-            Console.WriteLine("Unbind!");
+        public ValueTask UnbindAsync(CancellationToken cancellationToken = new CancellationToken()) => DisposeAsync();
 
-            return DisposeAsync();
-        }
-        
         public ValueTask DisposeAsync()
         {
             _listenSocket?.Dispose();
@@ -42,8 +37,6 @@ namespace PlatformBenchmarks
                 try
                 {
                     var acceptSocket = await _listenSocket.AcceptAsync();
-
-                    Console.WriteLine($"Accepted socket fd {acceptSocket.Handle.ToInt32().ToString()}");
 
                     // Only apply no delay to Tcp based endpoints
                     if (acceptSocket.LocalEndPoint is IPEndPoint)
