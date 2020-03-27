@@ -27,6 +27,6 @@ namespace PlatformBenchmarks
         public override IDictionary<object, object> Items { get; set; }
         public override IDuplexPipe Transport { get; set; }
 
-        public void Start() => _processingTask = _benchmarkApplication.ProcessRequestsAsync();
+        public void Start() => _processingTask = _benchmarkApplication.StartAsync();
     }
 }

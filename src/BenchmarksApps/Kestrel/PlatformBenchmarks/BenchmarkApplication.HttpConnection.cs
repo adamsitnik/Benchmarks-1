@@ -21,9 +21,9 @@ namespace PlatformBenchmarks
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
         
-        private SocketAwaitableEventArgs WaitForDataAsync()
+        private SocketAwaitableEventArgs WaitForDataAsync(Memory<byte> memory)
         {
-            _awaitableEventArgs.SetBuffer(Memory<byte>.Empty);
+            _awaitableEventArgs.SetBuffer(memory);
 
             if (!_socket.ReceiveAsync(_awaitableEventArgs))
             {
@@ -33,7 +33,19 @@ namespace PlatformBenchmarks
             return _awaitableEventArgs;
         }
 
-        internal async Task ProcessRequestsAsync()
+        internal async Task StartAsync()
+        {
+            try
+            {
+                await ProcessRequestsAsync();
+            }
+            finally
+            {
+                _socket.Close();
+            }
+        }
+
+        private async Task ProcessRequestsAsync()
         {
             Console.WriteLine($"Started processing requests for socket fd {_socket.Handle.ToInt32().ToString()}");
 
@@ -45,9 +57,9 @@ namespace PlatformBenchmarks
 
             while (true)
             {
-                await WaitForDataAsync();
+                await WaitForDataAsync(Memory<byte>.Empty);
                 
-                var bytesRead = await socket.ReceiveAsync(segment, SocketFlags.None);
+                var bytesRead = await WaitForDataAsync(segment);
 
                 Console.WriteLine($"Received {bytesRead} for socket fd {_socket.Handle.ToInt32().ToString()}");
                 if (bytesRead == 0)
