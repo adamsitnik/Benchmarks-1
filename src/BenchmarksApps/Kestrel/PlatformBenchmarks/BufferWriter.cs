@@ -23,7 +23,7 @@ namespace PlatformBenchmarks
         public Span<byte> Span => _span;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Commit()
+        public int Commit()
         {
             var buffered = _buffered;
             if (buffered > 0)
@@ -31,6 +31,7 @@ namespace PlatformBenchmarks
                 _buffered = 0;
                 _output.Advance(buffered);
             }
+            return buffered;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -4,63 +4,51 @@
 using System;
 using System.Buffers;
 using System.IO.Pipelines;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 
 namespace PlatformBenchmarks
 {
-    public partial class BenchmarkApplication : IHttpConnection
+    public partial class BenchmarkApplication
     {
+        private readonly Socket _socket;
         private State _state;
 
-        public PipeReader Reader { get; set; }
-        public PipeWriter Writer { get; set; }
+        public BenchmarkApplication(Socket socket) => _socket = socket;
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
-
-        public async Task ExecuteAsync()
+        
+        internal async Task ProcessRequestsAsync()
         {
-            try
-            {
-                await ProcessRequestsAsync();
+            byte[] output = new byte[16 * 1024];
+            byte[] input = new byte[16 * 1024];
 
-                Reader.Complete();
-            }
-            catch (Exception ex)
-            {
-                Reader.Complete(ex);
-            }
-            finally
-            {
-                Writer.Complete();
-            }
-        }
+            var socket = _socket;
+            var segment = new Memory<byte>(input);
 
-        private async Task ProcessRequestsAsync()
-        {
             while (true)
             {
-                var task = Reader.ReadAsync();
-
-                if (!task.IsCompleted)
+                var bytesRead = await socket.ReceiveAsync(segment, SocketFlags.None);
+                if (bytesRead == 0)
                 {
-                    // No more data in the input
-                    await OnReadCompletedAsync();
+                    return;
                 }
+                
+                var buffer = new ReadOnlySequence<byte>(input, 0, bytesRead);
+                int offset = 0;
 
-                var result = await task;
-                var buffer = result.Buffer;
                 while (true)
                 {
-                    if (!ParseHttpRequest(ref buffer, result.IsCompleted, out var examined))
+                    if (!ParseHttpRequest(ref buffer, true, out var examined))
                     {
                         return;
                     }
 
                     if (_state == State.Body)
                     {
-                        ProcessRequest();
+                        PrepareResponse(output, ref offset);
 
                         _state = State.StartLine;
 
@@ -72,9 +60,10 @@ namespace PlatformBenchmarks
                     }
 
                     // No more input or incomplete data, Advance the Reader
-                    Reader.AdvanceTo(buffer.Start, examined);
                     break;
                 }
+
+                socket.Send(output, 0, offset, SocketFlags.None, out var error);
             }
         }
 
@@ -156,11 +145,6 @@ namespace PlatformBenchmarks
         {
         }
 #endif
-
-        public async ValueTask OnReadCompletedAsync()
-        {
-            await Writer.FlushAsync();
-        }
 
         private static void ThrowUnexpectedEndOfData()
         {

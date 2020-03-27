@@ -3,8 +3,14 @@
 
 using System;
 using System.Net;
+using System.Threading;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace PlatformBenchmarks
 {
@@ -17,6 +23,11 @@ namespace PlatformBenchmarks
             Console.WriteLine(BenchmarkApplication.Paths.Json);
             DateHeader.SyncDateTimer();
 
+            if (int.TryParse(Environment.GetEnvironmentVariable("maxThreadCount"), out int max))
+            {
+                Console.WriteLine($"Thread count: <{max - 1}, {max}> {ThreadPool.SetMinThreads(max - 1, max - 1)} {ThreadPool.SetMaxThreads(max, max)}");
+            }
+
             BuildWebHost(args).Run();
         }
 
@@ -28,15 +39,22 @@ namespace PlatformBenchmarks
                 .Build();
 
             var host = new WebHostBuilder()
-                .UseBenchmarksConfiguration(config)
-                .UseKestrel((context, options) =>
+                .UseConfiguration(config)
+                .ConfigureKestrel((context, options) =>
                 {
                     IPEndPoint endPoint = context.Configuration.CreateIPEndPoint();
-
+                
                     options.Listen(endPoint, builder =>
                     {
-                        builder.UseHttpApplication<BenchmarkApplication>();
+                        builder.UseHttpApplication();
                     });
+                })
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton<IConnectionListenerFactory, RawSocketTransportFactory>();
+                    
+                    services.AddTransient<IConfigureOptions<KestrelServerOptions>, RawKestrelServerOptionsSetup>();
+                    services.AddSingleton<IServer, KestrelServer>();
                 })
                 .UseStartup<Startup>()
                 .Build();
