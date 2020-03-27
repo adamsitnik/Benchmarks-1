@@ -13,6 +13,7 @@ namespace PlatformBenchmarks
         private readonly Socket _acceptSocket;
         private readonly SocketTransportOptions _options;
         private readonly BenchmarkApplication _benchmarkApplication;
+        private Task _processingTask;
 
         public RawSocketConnection(Socket acceptSocket, SocketTransportOptions options)
         {
@@ -26,6 +27,6 @@ namespace PlatformBenchmarks
         public override IDictionary<object, object> Items { get; set; }
         public override IDuplexPipe Transport { get; set; }
 
-        public Task Start() => _benchmarkApplication.ProcessRequestsAsync();
+        public void Start() => _processingTask = _benchmarkApplication.ProcessRequestsAsync();
     }
 }
