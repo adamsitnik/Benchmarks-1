@@ -25,7 +25,6 @@ namespace PlatformBenchmarks
         public ValueTask<IConnectionListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default)
         {
             var transport = new RawSocketConnectionListener(endpoint, _options);
-            Console.WriteLine($"Binding {endpoint.ToString()}");
             transport.Bind();
             return new ValueTask<IConnectionListener>(transport);
         }

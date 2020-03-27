@@ -41,6 +41,10 @@ namespace PlatformBenchmarks
             }
             finally
             {
+                _awaitableEventArgs.Dispose();
+                
+                _socket.Disconnect(reuseSocket: false);
+            
                 _socket.Close();
             }
         }
