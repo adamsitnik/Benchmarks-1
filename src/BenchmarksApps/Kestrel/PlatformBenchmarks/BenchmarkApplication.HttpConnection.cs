@@ -14,38 +14,13 @@ namespace PlatformBenchmarks
     public partial class BenchmarkApplication
     {
         private readonly Socket _socket;
-        private readonly SocketAwaitableEventArgs _awaitableEventArgs = new SocketAwaitableEventArgs();
         private State _state;
 
         public BenchmarkApplication(Socket socket) => _socket = socket;
 
         private HttpParser<ParsingAdapter> Parser { get; } = new HttpParser<ParsingAdapter>();
         
-        private SocketAwaitableEventArgs WaitForDataAsync(Memory<byte> memory)
-        {
-            _awaitableEventArgs.SetBuffer(memory);
-
-            if (!_socket.ReceiveAsync(_awaitableEventArgs))
-            {
-                _awaitableEventArgs.Complete();
-            }
-
-            return _awaitableEventArgs;
-        }
-
-        internal async Task StartAsync()
-        {
-            try
-            {
-                await ProcessRequestsAsync();
-            }
-            finally
-            {
-                _awaitableEventArgs.Dispose();
-            }
-        }
-
-        private async Task ProcessRequestsAsync()
+        internal async Task ProcessRequestsAsync()
         {
             byte[] output = new byte[16 * 1024];
             byte[] input = new byte[16 * 1024];
@@ -55,9 +30,7 @@ namespace PlatformBenchmarks
 
             while (true)
             {
-                await WaitForDataAsync(Memory<byte>.Empty);
-                
-                var bytesRead = await WaitForDataAsync(segment);
+                var bytesRead = await socket.ReceiveAsync(segment, SocketFlags.None);
                 if (bytesRead == 0)
                 {
                     return;
