@@ -48,7 +48,7 @@ namespace PlatformBenchmarks
 
                     if (_state == State.Body)
                     {
-                        ProcessRequest(output, ref offset);
+                        PrepareResponse(output, ref offset);
 
                         _state = State.StartLine;
 

@@ -64,7 +64,7 @@ namespace PlatformBenchmarks
             _requestType = requestType;
         }
 
-        public void ProcessRequest(byte[] output, ref int offset)
+        public void PrepareResponse(byte[] output, ref int offset)
         {
             if (_requestType == RequestType.PlainText)
             {

@@ -23,7 +23,7 @@ namespace PlatformBenchmarks
 
             var app = new BenchmarkApplication(rawSocketConnection.Socket);
 
-            return app.StartAsync();
+            return app.ProcessRequestsAsync();
         }
     }
 }
