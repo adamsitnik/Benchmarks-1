@@ -3,8 +3,13 @@
 
 using System;
 using System.Net;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace PlatformBenchmarks
 {
@@ -28,8 +33,8 @@ namespace PlatformBenchmarks
                 .Build();
 
             var host = new WebHostBuilder()
-                .UseBenchmarksConfiguration(config)
-                .UseKestrel((context, options) =>
+                .UseConfiguration(config)
+                .ConfigureKestrel((context, options) =>
                 {
                     IPEndPoint endPoint = context.Configuration.CreateIPEndPoint();
 
@@ -37,6 +42,13 @@ namespace PlatformBenchmarks
                     {
                         builder.UseHttpApplication<BenchmarkApplication>();
                     });
+                })
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton<IConnectionListenerFactory, RawSocketTransportFactory>();
+                    
+                    services.AddTransient<IConfigureOptions<KestrelServerOptions>, RawKestrelServerOptionsSetup>();
+                    services.AddSingleton<IServer, KestrelServer>();
                 })
                 .UseStartup<Startup>()
                 .Build();
