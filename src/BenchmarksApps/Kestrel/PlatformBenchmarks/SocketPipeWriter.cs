@@ -31,7 +31,7 @@ namespace PlatformBenchmarks
 
         public override void CancelPendingFlush() => throw new NotSupportedException();
 
-        public override void Complete(Exception exception = null) { } // nop
+        public override void Complete(Exception exception = null) => _offset = 0;
 
         public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
         {
@@ -50,6 +50,7 @@ namespace PlatformBenchmarks
             }
             while (toSent > 0);
 
+            _offset = 0;
 
             return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
         }
