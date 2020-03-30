@@ -3,7 +3,6 @@
 
 using System;
 using System.Net;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
@@ -11,33 +10,6 @@ namespace PlatformBenchmarks
 {
     public static class BenchmarkConfigurationHelpers
     {
-        public static IWebHostBuilder UseBenchmarksConfiguration(this IWebHostBuilder builder, IConfiguration configuration)
-        {
-            builder.UseConfiguration(configuration);
-
-            // Handle the transport type
-            var webHost = builder.GetSetting("KestrelTransport");
-
-            // Handle the thread count
-            var threadCountRaw = builder.GetSetting("threadCount");
-            int? theadCount = null;
-
-            if (!string.IsNullOrEmpty(threadCountRaw) && Int32.TryParse(threadCountRaw, out var value))
-            {
-                theadCount = value;
-            }
-
-            builder.UseSockets(options =>
-            {
-                if (theadCount.HasValue)
-                {
-                    options.IOQueueCount = theadCount.Value;
-                }
-            });
-
-            return builder;
-        }
-
         public static IPEndPoint CreateIPEndPoint(this IConfiguration config)
         {
             var url = config["server.urls"] ?? config["urls"];
