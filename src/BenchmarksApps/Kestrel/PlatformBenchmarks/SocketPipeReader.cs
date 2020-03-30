@@ -14,7 +14,7 @@ namespace PlatformBenchmarks
         public SocketPipeReader(Socket socket)
         {
             _socket = socket;
-            _array = new byte[16 * 160];
+            _array = new byte[16 * 512];
         }
 
         public override void AdvanceTo(SequencePosition consumed) { } // todo: implement
