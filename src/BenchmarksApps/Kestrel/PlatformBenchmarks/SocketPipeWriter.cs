@@ -55,8 +55,8 @@ namespace PlatformBenchmarks
             return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
         }
 
-        public override Memory<byte> GetMemory(int sizeHint = 0) => new Memory<byte>(_array);
+        public override Memory<byte> GetMemory(int sizeHint = 0) => new Memory<byte>(_array, _offset, _array.Length - _offset);
 
-        public override Span<byte> GetSpan(int sizeHint = 0) => new Span<byte>(_array);
+        public override Span<byte> GetSpan(int sizeHint = 0) => new Span<byte>(_array, _offset, _array.Length - _offset);
     }
 }
