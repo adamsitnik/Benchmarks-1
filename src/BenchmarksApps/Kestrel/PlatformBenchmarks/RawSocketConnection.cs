@@ -18,6 +18,7 @@ namespace PlatformBenchmarks
 
         public RawSocketConnection(Socket socket)
         {
+            Socket = socket;
             Features = new FeatureCollection();
             Transport = new SocketPipe(socket);
             LocalEndPoint = socket.LocalEndPoint;
