@@ -53,8 +53,7 @@ namespace PlatformBenchmarks
                     return;
                 }
 
-                // don't await on purpose - it's always executed in sync way
-                writer.FlushAsync(token);
+                await writer.FlushAsync(token);
             }
         }
 
