@@ -29,7 +29,7 @@ namespace PlatformBenchmarks
 
         public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
-            int bytesRead = await _socket.ReceiveAsync(new Memory<byte>(_array), SocketFlags.None);
+            int bytesRead = await _socket.ReceiveAsync(new Memory<byte>(_array), SocketFlags.None, cancellationToken);
 
             return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(_array, 0, bytesRead), isCanceled: false, isCompleted: true);
         }
