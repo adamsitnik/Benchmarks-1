@@ -27,6 +27,7 @@ namespace PlatformBenchmarks
         private readonly static AsciiString _plainTextBody = "Hello, World!";
 
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions();
+        private readonly static uint JsonPayloadSize = (uint)JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions).Length;
 
         public static class Paths
         {
@@ -111,14 +112,17 @@ namespace PlatformBenchmarks
 
             // Content-Length header
             writer.Write(_headerContentLength);
-            var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
-            writer.WriteNumeric((uint)jsonPayload.Length);
+            writer.WriteNumeric(JsonPayloadSize);
 
             // End of headers
             writer.Write(_eoh);
 
             // Body
-            writer.Write(jsonPayload);
+            writer.Commit();
+            using (Utf8JsonWriter utf8JsonWriter = new Utf8JsonWriter(writer.Output))
+            {
+                JsonSerializer.Serialize<JsonMessage>(utf8JsonWriter, new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+            }
         }
 
         private static void Default(ref BufferWriter<WriterAdapter> writer)
