@@ -42,7 +42,7 @@ namespace PlatformBenchmarks
             while (true)
             {
                 var readResult = await Reader.ReadAsync();
-                
+
                 if (!HandleRequest(readResult))
                 {
                     return;
