@@ -15,7 +15,7 @@ namespace PlatformBenchmarks
         public SocketPipeWriter(Socket socket)
         {
             _socket = socket;
-            _array = new byte[16 * 160];
+            _array = new byte[16 * 1024];
             _offset = 0;
         }
 
