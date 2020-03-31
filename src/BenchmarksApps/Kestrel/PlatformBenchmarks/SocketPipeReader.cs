@@ -27,18 +27,25 @@ namespace PlatformBenchmarks
 
         public override void Complete(Exception exception = null) {  } // nop
 
-        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
-            int bytesRead = await _socket.ReceiveAsync(new Memory<byte>(_array), SocketFlags.None, cancellationToken);
+            ValueTask<int> readTask = _socket.ReceiveAsync(new Memory<byte>(_array), SocketFlags.None, cancellationToken);
 
-            if (bytesRead >= 0)
+            if (readTask.IsCompleted) // fast path
             {
-                return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(_array, 0, bytesRead), isCanceled: cancellationToken.IsCancellationRequested, isCompleted: true);
+                return new ValueTask<ReadResult>(new ReadResult(new System.Buffers.ReadOnlySequence<byte>(_array, 0, readTask.Result), isCanceled: false, isCompleted: true));
             }
             else
             {
-                return new ReadResult(System.Buffers.ReadOnlySequence<byte>.Empty, isCanceled: cancellationToken.IsCancellationRequested, isCompleted: false);
+                return ReadAsync(readTask);
             }
+        }
+
+        private async ValueTask<ReadResult> ReadAsync(ValueTask<int> readTask)
+        {
+            var bytesRead = await readTask;
+
+            return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(_array, 0, bytesRead), isCanceled: false, isCompleted: true);
         }
     }
 }
