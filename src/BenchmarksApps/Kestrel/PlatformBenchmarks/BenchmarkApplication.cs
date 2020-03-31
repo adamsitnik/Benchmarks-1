@@ -95,6 +95,8 @@ namespace PlatformBenchmarks
             writer.Write(_plainTextBody);
         }
 
+        private static readonly byte[] jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+
         private static void Json(ref BufferWriter<WriterAdapter> writer)
         {
             // HTTP 1.1 OK
@@ -111,7 +113,7 @@ namespace PlatformBenchmarks
 
             // Content-Length header
             writer.Write(_headerContentLength);
-            var jsonPayload = JsonSerializer.SerializeToUtf8Bytes(new JsonMessage { message = "Hello, World!" }, SerializerOptions);
+
             writer.WriteNumeric((uint)jsonPayload.Length);
 
             // End of headers
