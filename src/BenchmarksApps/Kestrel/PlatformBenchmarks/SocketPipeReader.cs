@@ -29,16 +29,9 @@ namespace PlatformBenchmarks
 
         public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
-            int bytesRead = await _socket.ReceiveAsync(new Memory<byte>(_array), SocketFlags.None, cancellationToken);
+            int bytesRead = await _socket.ReceiveAsync(new Memory<byte>(_array), SocketFlags.None);
 
-            if (bytesRead >= 0)
-            {
-                return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(_array, 0, bytesRead), isCanceled: cancellationToken.IsCancellationRequested, isCompleted: true);
-            }
-            else
-            {
-                return new ReadResult(System.Buffers.ReadOnlySequence<byte>.Empty, isCanceled: cancellationToken.IsCancellationRequested, isCompleted: false);
-            }
+            return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(_array, 0, bytesRead), isCanceled: false, isCompleted: true);
         }
     }
 }
