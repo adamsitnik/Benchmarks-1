@@ -33,7 +33,7 @@ namespace PlatformBenchmarks
 
         public override void Complete(Exception exception = null) => _offset = 0;
 
-        public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+        public override ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
         {
             // we take advantage of the fact that all writes in TE are always small and non-blocking
             // so we perform a SYNC send on purpose
@@ -43,7 +43,7 @@ namespace PlatformBenchmarks
 
             do
             {
-                int bytesSent = await _socket.SendAsync(new ReadOnlyMemory<byte>(_array, start, toSent), SocketFlags.None, cancellationToken);
+                int bytesSent = _socket.Send(new ReadOnlySpan<byte>(_array, start, toSent), SocketFlags.None);
 
                 start += bytesSent;
                 toSent -= bytesSent;
@@ -52,7 +52,7 @@ namespace PlatformBenchmarks
 
             _offset = 0;
 
-            return new FlushResult(isCanceled: false, isCompleted: true);
+            return new ValueTask<FlushResult>(new FlushResult(isCanceled: false, isCompleted: true));
         }
 
         public override Memory<byte> GetMemory(int sizeHint = 0) => new Memory<byte>(_array, _offset, _array.Length - _offset);
