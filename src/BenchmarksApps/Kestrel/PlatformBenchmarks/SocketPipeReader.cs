@@ -12,20 +12,24 @@ namespace PlatformBenchmarks
     {
         private Socket _socket;
         private byte[] _array;
+        private int _offset;
+        private int _length;
         private SocketAwaitableEventArgs _awaitableEventArgs;
 
         public SocketPipeReader(Socket socket)
         {
             _socket = socket;
             _array = new byte[16 * 1024];
+            _offset = 0;
+            _length = 0;
             _awaitableEventArgs = new SocketAwaitableEventArgs();
         }
 
-        public override void AdvanceTo(SequencePosition consumed) { } // todo: implement
+        public override void AdvanceTo(SequencePosition consumed) => _offset += consumed.GetInteger();
 
-        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) { } // todo: implement
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) => _offset += consumed.GetInteger();
 
-        public override void CancelPendingRead() => throw new NotSupportedException();
+        public override void CancelPendingRead() { } // nop
 
         public override bool TryRead(out ReadResult result) => throw new NotSupportedException();
 
@@ -33,9 +37,14 @@ namespace PlatformBenchmarks
 
         public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
+            if (_offset == _length) // previously entire array was parsed (100% of cases for TechEmpower)
+            {
+                _offset = 0;
+            }
+
             var array = _array;
             var args = _awaitableEventArgs;
-            args.SetBuffer(new Memory<byte>(array));
+            args.SetBuffer(new Memory<byte>(array, _offset, array.Length - _offset));
 
             if (_socket.ReceiveAsync(args))
             {
@@ -43,7 +52,9 @@ namespace PlatformBenchmarks
                 await args;
             }
 
-            return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(array, 0, args.GetResult()), isCanceled: false, isCompleted: true);
+            _length = args.GetResult();
+
+            return new ReadResult(new System.Buffers.ReadOnlySequence<byte>(array, _offset, _length), isCanceled: false, isCompleted: true);
         }
     }
 
