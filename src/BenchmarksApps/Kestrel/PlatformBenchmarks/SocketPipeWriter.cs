@@ -8,6 +8,10 @@ namespace PlatformBenchmarks
 {
     internal sealed class SocketPipeWriter : PipeWriter
     {
+        // the biggest response that we can create for TechEmpower Plaintext is around 1200 bytes
+        // it's simply cheaper to allocate small array and reuse it compared to pooling
+        private const int BufferSize = 2 * 1024;
+
         private Socket _socket;
         private byte[] _array;
         private int _offset;
@@ -15,7 +19,7 @@ namespace PlatformBenchmarks
         public SocketPipeWriter(Socket socket)
         {
             _socket = socket;
-            _array = new byte[16 * 1024];
+            _array = new byte[BufferSize];
             _offset = 0;
         }
 
