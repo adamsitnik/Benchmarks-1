@@ -15,12 +15,14 @@ namespace PlatformBenchmarks
         public override IDictionary<object, object> Items { get; set; }
         public override IDuplexPipe Transport { get; set; }
         private Socket Socket { get; }
+        private SocketAwaitableEventArgs AwaitableEventArgs { get; }
 
         public RawSocketConnection(Socket socket)
         {
             Socket = socket;
+            AwaitableEventArgs = new SocketAwaitableEventArgs();
             Features = new FeatureCollection();
-            Transport = new SocketPipe(socket);
+            Transport = new SocketPipe(socket, AwaitableEventArgs);
             LocalEndPoint = socket.LocalEndPoint;
             RemoteEndPoint = socket.RemoteEndPoint;
             ConnectionId = Guid.NewGuid().ToString();
@@ -28,6 +30,7 @@ namespace PlatformBenchmarks
 
         public override ValueTask DisposeAsync()
         {
+            AwaitableEventArgs.Dispose();
             Socket.Dispose();
 
             return default;

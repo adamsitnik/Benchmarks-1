@@ -5,9 +5,9 @@ namespace PlatformBenchmarks
 {
     internal sealed class SocketPipe : IDuplexPipe
     {
-        internal SocketPipe(Socket socket)
+        internal SocketPipe(Socket socket, SocketAwaitableEventArgs awaitableEventArgs)
         {
-            Input = new SocketPipeReader(socket);
+            Input = new SocketPipeReader(socket, awaitableEventArgs);
             Output = new SocketPipeWriter(socket);
         }
 
