@@ -63,30 +63,10 @@ namespace PlatformBenchmarks
             var buffer = result.Buffer;
             var writer = GetWriter(Writer);
 
-            while (true)
-            {
-                if (!ParseHttpRequest(ref buffer, result.IsCompleted, out var examined))
-                {
-                    return false;
-                }
+            _requestType = RequestType.Json;
+            ProcessRequest(ref writer);
 
-                if (_state == State.Body)
-                {
-                    ProcessRequest(ref writer);
-
-                    _state = State.StartLine;
-
-                    if (!buffer.IsEmpty)
-                    {
-                        // More input data to parse
-                        continue;
-                    }
-                }
-
-                // No more input or incomplete data, Advance the Reader
-                Reader.AdvanceTo(buffer.Start, examined);
-                break;
-            }
+            Reader.AdvanceTo(new SequencePosition(null, (int)buffer.Length));
 
             writer.Commit();
             return true;
