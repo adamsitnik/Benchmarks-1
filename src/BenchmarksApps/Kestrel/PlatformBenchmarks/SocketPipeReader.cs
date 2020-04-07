@@ -9,9 +9,9 @@ namespace PlatformBenchmarks
 {
     internal sealed class SocketPipeReader : PipeReader
     {
-        // the biggest request that we can get for TechEmpower Plaintext is 784
+        // the biggest request that we can get for TechEmpower Plaintext is around 3k
         // it's simply cheaper to allocate small array and reuse it compared to pooling
-        private const int BufferSize = 1024;
+        private const int BufferSize = 1024 * 4;
 
         private Socket _socket;
         private byte[] _array;
@@ -34,7 +34,12 @@ namespace PlatformBenchmarks
 
         public override void CancelPendingRead() { } // nop
 
-        public override bool TryRead(out ReadResult result) => throw new NotSupportedException();
+        public override bool TryRead(out ReadResult result)
+        {
+            result = default;
+
+            return false;
+        }
 
         public override void Complete(Exception exception = null) {  } // nop
 
