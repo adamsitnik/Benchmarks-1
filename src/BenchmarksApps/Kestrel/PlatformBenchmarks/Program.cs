@@ -64,6 +64,7 @@ namespace PlatformBenchmarks
             var appSettings = config.Get<AppSettings>();
 
             Console.WriteLine($"Database: {appSettings.Database}");
+            Console.WriteLine($"ConnectionString: {appSettings.ConnectionString}");
 
             if (appSettings.Database == DatabaseServer.PostgreSql)
             {
