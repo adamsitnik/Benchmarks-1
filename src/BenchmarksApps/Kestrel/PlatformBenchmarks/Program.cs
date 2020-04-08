@@ -5,6 +5,7 @@ using System;
 using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 #if DATABASE
 using Npgsql;
 using MySql.Data.MySqlClient;
@@ -32,10 +33,7 @@ namespace PlatformBenchmarks
 #endif
             DateHeader.SyncDateTimer();
 
-            var host = BuildWebHost(args);
-            var config = (IConfiguration)host.Services.GetService(typeof(IConfiguration));
-            BatchUpdateString.DatabaseServer = config.Get<AppSettings>().Database;
-            host.Run();
+            BuildWebHost(args).Run();
         }
 
         public static IWebHost BuildWebHost(string[] args)
@@ -45,20 +43,6 @@ namespace PlatformBenchmarks
                 .AddEnvironmentVariables(prefix: "ASPNETCORE_")
                 .AddCommandLine(args)
                 .Build();
-
-            var appSettings = config.Get<AppSettings>();
-#if DATABASE
-            Console.WriteLine($"Database: {appSettings.Database}");
-
-            if (appSettings.Database == DatabaseServer.PostgreSql)
-            {
-                BenchmarkApplication.Db = new RawDb(new ConcurrentRandom(), NpgsqlFactory.Instance, appSettings);
-            }
-            else if (appSettings.Database == DatabaseServer.MySql)
-            {
-                BenchmarkApplication.Db = new RawDb(new ConcurrentRandom(), MySqlClientFactory.Instance, appSettings);
-            }
-#endif
 
             var host = new WebHostBuilder()
                 .UseBenchmarksConfiguration(config)
@@ -71,8 +55,27 @@ namespace PlatformBenchmarks
                         builder.UseHttpApplication<BenchmarkApplication>();
                     });
                 })
+                .ConfigureServices(services => services.Configure<AppSettings>(config))
                 .UseStartup<Startup>()
                 .Build();
+
+
+#if DATABASE
+            var appSettings = config.Get<AppSettings>();
+
+            Console.WriteLine($"Database: {appSettings.Database}");
+
+            if (appSettings.Database == DatabaseServer.PostgreSql)
+            {
+                BenchmarkApplication.Db = new RawDb(new ConcurrentRandom(), NpgsqlFactory.Instance, appSettings);
+            }
+            else if (appSettings.Database == DatabaseServer.MySql)
+            {
+                BenchmarkApplication.Db = new RawDb(new ConcurrentRandom(), MySqlClientFactory.Instance, appSettings);
+            }
+
+            BatchUpdateString.DatabaseServer = appSettings.Database;
+#endif
 
             return host;
         }
