@@ -29,7 +29,7 @@ namespace PlatformBenchmarks
                     }
 
 #if NETCOREAPP5_0
-                    options.WaitForDataBeforeAllocatingBuffer = false;
+                    typeof(SocketTransportOptions).GetProperty("WaitForDataBeforeAllocatingBuffer")?.SetValue(options, false);
 #endif
                 });
             }
