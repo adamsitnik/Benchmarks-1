@@ -4,6 +4,8 @@
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Encodings.Web;
 
 namespace PlatformBenchmarks
 {
@@ -63,6 +65,19 @@ namespace PlatformBenchmarks
             {
                 EnsureMore(count);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void EncodeUtf8String(HtmlEncoder htmlEncoder, string text)
+        {
+            int maxLength = text.Length * 3;
+            Ensure(maxLength * 2);
+
+            var destination = this.Span;
+            int bytesCount = Encoding.UTF8.GetBytes(text.AsSpan(), destination.Slice(maxLength));
+            htmlEncoder.EncodeUtf8(destination.Slice(maxLength, bytesCount), destination, out int bytesConsumed, out int bytesWritten, isFinalBlock: true);
+
+            Advance(bytesWritten);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
