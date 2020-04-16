@@ -1,8 +1,11 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
@@ -40,19 +43,24 @@ namespace PlatformBenchmarks
             // End of headers
             writer.Write(_eoh);
 
-            var bodyStart = writer.Buffered;
+            var tableWriter = writer;
+            Span<char> tableSpan = MemoryMarshal.Cast<byte, char>(tableWriter.Span);
             // Body
-            writer.Write(_fortunesTableStart);
+
+            tableWriter.Write(_fortunesTableStart);
             foreach (var item in model)
             {
-                writer.Write(_fortunesRowStart);
-                writer.WriteNumeric((uint)item.Id);
-                writer.Write(_fortunesColumn);
-                writer.WriteUtf8String(HtmlEncoder.Encode(item.Message));
-                writer.Write(_fortunesRowEnd);
+                tableWriter.Write(_fortunesRowStart);
+                tableWriter.Write(item.Id.ToString());
+                tableWriter.Write(_fortunesColumn);
+                tableWriter.Write(HtmlEncoder.Encode(item.Message));
+                tableWriter.Write(_fortunesRowEnd);
             }
-            writer.Write(_fortunesTableEnd);
-            lengthWriter.WriteNumeric((uint)(writer.Buffered - bodyStart));
+            tableWriter.Write(_fortunesTableEnd);
+
+            int bytesCount = Encoding.UTF8.GetBytes(tableSpan.Slice(0, (tableWriter.Buffered - writer.Buffered) / 2), writer.Span);
+            writer.Advance(bytesCount);
+            lengthWriter.WriteNumeric((uint)bytesCount);
 
             writer.Commit();
         }

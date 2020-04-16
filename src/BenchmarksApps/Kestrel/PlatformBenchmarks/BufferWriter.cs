@@ -4,6 +4,7 @@
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace PlatformBenchmarks
 {
@@ -55,6 +56,9 @@ namespace PlatformBenchmarks
                 WriteMultiBuffer(source);
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Write(ReadOnlySpan<char> source) => Write(MemoryMarshal.AsBytes(source));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Ensure(int count = 1)

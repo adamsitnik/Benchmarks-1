@@ -29,11 +29,11 @@ namespace PlatformBenchmarks
 
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions();
 
-        private readonly static AsciiString _fortunesTableStart = "<!DOCTYPE html><html><head><title>Fortunes</title></head><body><table><tr><th>id</th><th>message</th></tr>";
-        private readonly static AsciiString _fortunesRowStart = "<tr><td>";
-        private readonly static AsciiString _fortunesColumn = "</td><td>";
-        private readonly static AsciiString _fortunesRowEnd = "</td></tr>";
-        private readonly static AsciiString _fortunesTableEnd = "</table></body></html>";
+        private const string _fortunesTableStart = "<!DOCTYPE html><html><head><title>Fortunes</title></head><body><table><tr><th>id</th><th>message</th></tr>";
+        private const string _fortunesRowStart = "<tr><td>";
+        private const string _fortunesColumn = "</td><td>";
+        private const string _fortunesRowEnd = "</td></tr>";
+        private const string _fortunesTableEnd = "</table></body></html>";
         private readonly static AsciiString _contentLengthGap = new string(' ', 4);
 
         public static RawDb Db { get; set; }
