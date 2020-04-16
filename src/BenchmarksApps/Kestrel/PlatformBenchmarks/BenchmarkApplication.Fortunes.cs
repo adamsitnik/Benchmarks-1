@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Text.Encodings.Web;
@@ -41,7 +42,8 @@ namespace PlatformBenchmarks
                 writer.Write(_fortunesRowStart);
                 writer.WriteNumeric((uint)item.Id);
                 writer.Write(_fortunesColumn);
-                writer.WriteUtf8String(HtmlEncoder.Encode(item.Message));
+                HtmlEncoder.EncodeUtf8(item.Message.AsBytes(), writer.Span, out _, out int bytesWritten, true);
+                writer.Advance(bytesWritten);
                 writer.Write(_fortunesRowEnd);
             }
             writer.Write(_fortunesTableEnd);

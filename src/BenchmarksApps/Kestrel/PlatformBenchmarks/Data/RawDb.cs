@@ -132,6 +132,8 @@ namespace PlatformBenchmarks
             }
         }
 
+        private static readonly Utf8String additionalFortuneMessage = new Utf8String("Additional fortune added at request time.");
+
         public async Task<List<Fortune>> LoadFortunesRows()
         {
             var result = new List<Fortune>();
@@ -153,13 +155,13 @@ namespace PlatformBenchmarks
                         result.Add(new Fortune
                         {
                             Id = rdr.GetInt32(0),
-                            Message = rdr.GetString(1)
+                            Message = (Utf8String)rdr.GetValue(1)
                         });
                     }
                 }
             }
 
-            result.Add(new Fortune { Message = "Additional fortune added at request time." });
+            result.Add(new Fortune { Message = additionalFortuneMessage });
             result.Sort();
 
             return result;

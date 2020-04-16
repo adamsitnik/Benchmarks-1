@@ -9,7 +9,7 @@ namespace PlatformBenchmarks
     {
         public int Id { get; set; }
 
-        public string Message { get; set; }
+        public Utf8String Message { get; set; }
         
         public int CompareTo(object obj)
         {
@@ -19,7 +19,7 @@ namespace PlatformBenchmarks
         public int CompareTo(Fortune other)
         {
             // Performance critical, using culture insensitive comparison
-            return String.CompareOrdinal(Message, other.Message);
+            return Message.CompareTo(other.Message, StringComparison.Ordinal);
         }
     }
 }

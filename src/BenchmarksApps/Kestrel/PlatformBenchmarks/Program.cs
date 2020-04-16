@@ -25,6 +25,8 @@ namespace PlatformBenchmarks
             Console.WriteLine(BenchmarkApplication.Paths.Plaintext);
             Console.WriteLine(BenchmarkApplication.Paths.Json);
 #else
+            NpgsqlConnection.GlobalTypeMapper.UseUtf8String();
+
             Console.WriteLine(BenchmarkApplication.Paths.Fortunes);
             Console.WriteLine(BenchmarkApplication.Paths.SingleQuery);
             Console.WriteLine(BenchmarkApplication.Paths.Updates);
