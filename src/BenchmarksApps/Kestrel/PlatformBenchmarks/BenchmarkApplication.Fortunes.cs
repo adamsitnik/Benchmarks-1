@@ -57,7 +57,8 @@ namespace PlatformBenchmarks
 
                 tableWriter.Write(item.Id.ToString());
                 tableWriter.Write(_fortunesColumn);
-                tableWriter.Write(HtmlEncoder.Encode(item.Message));
+                HtmlEncoder.Encode(item.Message, MemoryMarshal.Cast<byte, char>(tableWriter.Span), out _, out int charsWritten, true);
+                tableWriter.Advance(charsWritten * 2);
             }
             tableWriter.Write(_fortunesRowEnd);
             tableWriter.Write(_fortunesTableEnd);
