@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -73,6 +74,7 @@ namespace PlatformBenchmarks
             writer.Commit();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Write(ref Span<char> tableSpan, string text)
         {
             text.AsSpan().CopyTo(tableSpan);
