@@ -44,30 +44,39 @@ namespace PlatformBenchmarks
             writer.Write(_eoh);
 
             var tableWriter = writer;
-            Span<char> tableSpan = MemoryMarshal.Cast<byte, char>(tableWriter.Span);
+            Span<char> tableBegining = MemoryMarshal.Cast<byte, char>(tableWriter.Span);
+            Span<char> tableSpan = tableBegining;
             // Body
 
-            tableWriter.Write(_fortunesTableStart);
-            tableWriter.Write(_fortunesRowStart);
+            Write(ref tableSpan, _fortunesTableStart);
+            Write(ref tableSpan, _fortunesRowStart);
+
             bool first = true;
             foreach (var item in model)
             {
                 if (first) first = false;
-                else tableWriter.Write(_fortunesRowEndAndStart);
+                else Write(ref tableSpan, _fortunesRowEndAndStart);
 
-                tableWriter.Write(item.Id.ToString());
-                tableWriter.Write(_fortunesColumn);
-                HtmlEncoder.Encode(item.Message, MemoryMarshal.Cast<byte, char>(tableWriter.Span), out _, out int charsWritten, true);
-                tableWriter.Advance(charsWritten * 2);
+                Write(ref tableSpan, item.Id.ToString());
+                Write(ref tableSpan, _fortunesColumn);
+
+                HtmlEncoder.Encode(item.Message, tableSpan, out _, out int charsWritten, true);
+                tableSpan = tableSpan.Slice(charsWritten);
             }
-            tableWriter.Write(_fortunesRowEnd);
-            tableWriter.Write(_fortunesTableEnd);
+            Write(ref tableSpan, _fortunesRowEnd);
+            Write(ref tableSpan, _fortunesTableEnd);
 
-            int bytesCount = Encoding.UTF8.GetBytes(tableSpan.Slice(0, (tableWriter.Buffered - writer.Buffered) / 2), writer.Span);
+            int bytesCount = Encoding.UTF8.GetBytes(tableBegining.Slice(0, tableBegining.Length - tableSpan.Length), writer.Span);
             writer.Advance(bytesCount);
             lengthWriter.WriteNumeric((uint)bytesCount);
 
             writer.Commit();
+        }
+
+        private static void Write(ref Span<char> tableSpan, string text)
+        {
+            text.AsSpan().CopyTo(tableSpan);
+            tableSpan = tableSpan.Slice(text.Length);
         }
     }
 }
