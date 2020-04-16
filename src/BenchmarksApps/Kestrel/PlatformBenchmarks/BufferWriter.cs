@@ -57,7 +57,7 @@ namespace PlatformBenchmarks
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Write(ReadOnlySpan<char> source) => Write(MemoryMarshal.AsBytes(source));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
