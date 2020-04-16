@@ -33,6 +33,7 @@ namespace PlatformBenchmarks
         private const string _fortunesRowStart = "<tr><td>";
         private const string _fortunesColumn = "</td><td>";
         private const string _fortunesRowEnd = "</td></tr>";
+        private const string _fortunesRowEndAndStart = _fortunesRowEnd + _fortunesRowStart;
         private const string _fortunesTableEnd = "</table></body></html>";
         private readonly static AsciiString _contentLengthGap = new string(' ', 4);
 

@@ -48,14 +48,18 @@ namespace PlatformBenchmarks
             // Body
 
             tableWriter.Write(_fortunesTableStart);
+            tableWriter.Write(_fortunesRowStart);
+            bool first = true;
             foreach (var item in model)
             {
-                tableWriter.Write(_fortunesRowStart);
+                if (first) first = false;
+                else tableWriter.Write(_fortunesRowEndAndStart);
+
                 tableWriter.Write(item.Id.ToString());
                 tableWriter.Write(_fortunesColumn);
                 tableWriter.Write(HtmlEncoder.Encode(item.Message));
-                tableWriter.Write(_fortunesRowEnd);
             }
+            tableWriter.Write(_fortunesRowEnd);
             tableWriter.Write(_fortunesTableEnd);
 
             int bytesCount = Encoding.UTF8.GetBytes(tableSpan.Slice(0, (tableWriter.Buffered - writer.Buffered) / 2), writer.Span);
