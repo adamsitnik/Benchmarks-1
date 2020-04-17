@@ -28,9 +28,7 @@ namespace PlatformBenchmarks
                        options.IOQueueCount = threadCount;
                     }
 
-#if NETCOREAPP5_0
-                    options.WaitForDataBeforeAllocatingBuffer = false;
-#endif
+                    options.GetType().GetProperty("WaitForDataBeforeAllocatingBuffer")?.SetValue(options, false);
                 });
             }
             else if (string.Equals(webHost, "LinuxTransport", StringComparison.OrdinalIgnoreCase))
