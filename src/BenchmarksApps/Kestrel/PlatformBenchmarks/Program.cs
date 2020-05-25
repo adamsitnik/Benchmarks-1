@@ -22,7 +22,7 @@ namespace PlatformBenchmarks
             Args = args;
 
             ThreadPool.SetMinThreads(Environment.ProcessorCount -1, Environment.ProcessorCount - 1);
-            ThreadPool.SetMaxThreads(Environment.ProcessorCount, Environment.ProcessorCount);
+            ThreadPool.SetMaxThreads(Environment.ProcessorCount -1, Environment.ProcessorCount - 1);
 
             Console.WriteLine(BenchmarkApplication.ApplicationName);
 #if !DATABASE
