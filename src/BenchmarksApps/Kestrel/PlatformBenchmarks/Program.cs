@@ -3,6 +3,7 @@
 
 using System;
 using System.Net;
+using System.Threading;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 #if DATABASE
@@ -19,6 +20,9 @@ namespace PlatformBenchmarks
         public static void Main(string[] args)
         {
             Args = args;
+
+            ThreadPool.SetMinThreads(Environment.ProcessorCount -1, Environment.ProcessorCount - 1);
+            ThreadPool.SetMaxThreads(Environment.ProcessorCount, Environment.ProcessorCount);
 
             Console.WriteLine(BenchmarkApplication.ApplicationName);
 #if !DATABASE
