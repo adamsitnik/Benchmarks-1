@@ -24,33 +24,10 @@ namespace PlatformBenchmarks
 
             Console.WriteLine($"KestrelTransport={webHost}");
 
-            if (string.Equals(webHost, "Sockets", StringComparison.OrdinalIgnoreCase))
+            builder.ConfigureServices(services =>
             {
-                builder.UseSockets(options =>
-                {
-                    if (int.TryParse(builder.GetSetting("threadCount"), out int threadCount))
-                    {
-                        options.IOQueueCount = threadCount;
-                    }
-#if NETCOREAPP5_0
-                    typeof(SocketTransportOptions).GetProperty("WaitForDataBeforeAllocatingBuffer")?.SetValue(options, false);
-#endif          
-                });
-            }
-            else if (string.Equals(webHost, "LinuxTransport", StringComparison.OrdinalIgnoreCase))
-            {
-                builder.UseLinuxTransport(options =>
-                {
-                    options.ApplicationSchedulingMode = PipeScheduler.Inline;
-                });
-            }
-            else if (string.Equals(webHost, "SocketPipe", StringComparison.OrdinalIgnoreCase))
-            {
-                builder.ConfigureServices(services =>
-                {
-                    services.AddSingleton<IConnectionListenerFactory, SocketPipeTransportFactory>();
-                });
-            }
+                services.AddSingleton<IConnectionListenerFactory, SocketPipeTransportFactory>();
+            });
 
             return builder;
         }
