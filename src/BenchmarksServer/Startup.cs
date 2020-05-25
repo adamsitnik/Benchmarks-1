@@ -14,7 +14,6 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
-using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,19 +23,18 @@ using Benchmarks.ServerJob;
 using BenchmarksServer;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.Routing.Matching;
 using Microsoft.Diagnostics.Tools.RuntimeClient;
 using Microsoft.Diagnostics.Tools.Trace;
 using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.Tracing.Parsers.ApplicationServer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NuGet.Versioning;
 using Repository;
 using OperatingSystem = Benchmarks.ServerJob.OperatingSystem;
 
@@ -62,22 +60,28 @@ namespace BenchmarkServer
         private static string CurrentTargetFramework = "netcoreapp3.1";
         private static string CurrentChannel = "3.1";
 
-        private const string PerfViewVersion = "P2.0.42";
+        private const string PerfViewVersion = "P2.0.54";
 
         private static readonly HttpClient _httpClient;
         private static readonly HttpClientHandler _httpClientHandler;
         private static readonly string _dotnetInstallShUrl = "https://raw.githubusercontent.com/dotnet/cli/master/scripts/obtain/dotnet-install.sh";
-        private static readonly string _dotnetInstallPs1Url = "https://raw.githubusercontent.com/dotnet/cli/master/scripts/obtain/dotnet-install.ps1";
+        private static readonly string _dotnetInstallPs1Url = "https://raw.githubusercontent.com/dotnet/sdk/master/scripts/obtain/dotnet-install.ps1";
         private static readonly string _aspNetCoreDependenciesUrl = "https://raw.githubusercontent.com/aspnet/AspNetCore/{0}";
         private static readonly string _perfviewUrl = $"https://github.com/Microsoft/perfview/releases/download/{PerfViewVersion}/PerfView.exe";
-        private static readonly string _aspnetFlatContainerUrl = "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer/microsoft.aspnetcore.server.kestrel.transport.libuv/index.json";
-        private static readonly string _latestRuntimeApiUrl = "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer/microsoft.netcore.app/index.json";
+        private static readonly string _aspnetFlatContainerUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.AspNetCore.App.Runtime.linux-x64/index.json";
+        private static readonly string _latestRuntimeApiUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NetCore.App.Runtime.linux-x64/index.json";
         private static readonly string _latestDesktopApiUrl = "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer/microsoft.windowsdesktop.app/index.json";
         private static readonly string _releaseMetadata = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json";
+
+        // SDK URLs are found here: https://github.com/dotnet/installer/blob/master/README.md
         private static readonly string _sdkVersionUrl = "https://dotnetcli.blob.core.windows.net/dotnet/Sdk/{0}/latest.version";
+        private static readonly string _latestSdkVersionUrl = "https://aka.ms/dotnet/net5/dev/Sdk/productCommit-win-x64.txt";
         private static readonly string _aspnetSdkVersionUrl = "https://raw.githubusercontent.com/dotnet/aspnetcore/master/global.json";
-        private static readonly string _runtimeMonoPackageUrl = "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer/runtime.linux-x64.microsoft.netcore.runtime.mono/{0}/runtime.linux-x64.microsoft.netcore.runtime.mono.{0}.nupkg";
-        private static readonly string[] _runtimeFeedUrls = new string[] { "dotnetfeed.blob.core.windows.net/dotnet-core", "api.nuget.org/v3" };
+        private static readonly string _runtimeMonoPackageUrl = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2/Microsoft.NETCore.App.Runtime.Mono.linux-x64/{0}/Microsoft.NETCore.App.Runtime.Mono.linux-x64.{0}.nupkg";
+        private static readonly string[] _runtimeFeedUrls = new string[] {
+            "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet5/nuget/v3/flat2",
+            "https://dotnetfeed.blob.core.windows.net/dotnet-core/flatcontainer",
+            "https://api.nuget.org/v3/flatcontainer" };
 
         // Cached lists of SDKs and runtimes already installed
         private static readonly HashSet<string> _installedAspNetRuntimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -110,6 +114,7 @@ namespace BenchmarkServer
         public static TimeSpan StartTimeout = TimeSpan.FromMinutes(3);
         public static TimeSpan BuildTimeout = TimeSpan.FromHours(3);
         public static TimeSpan DeletedTimeout = TimeSpan.FromHours(18);
+        public static TimeSpan PerfCollectTimeout = TimeSpan.FromMinutes(2);
 
         private static string _startPerfviewArguments;
 
@@ -140,7 +145,7 @@ namespace BenchmarkServer
                 throw new InvalidOperationException($"Invalid OSPlatform: {RuntimeInformation.OSDescription}");
             }
 
-            
+
             // Configuring the http client to trust the self-signed certificate
             _httpClientHandler = new HttpClientHandler();
             _httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
@@ -256,8 +261,7 @@ namespace BenchmarkServer
                 }
                 else
                 {
-                    Console.WriteLine("Option --hardware-version is required.");
-                    return 3;
+                    HardwareVersion = "Unspecified";
                 }
                 if (Enum.TryParse(hardwareOption.Value(), ignoreCase: true, result: out Hardware hardware))
                 {
@@ -265,12 +269,7 @@ namespace BenchmarkServer
                 }
                 else
                 {
-                    Console.WriteLine($"Option --{hardwareOption.LongName} <TYPE> is required. Available types:");
-                    foreach (Hardware type in Enum.GetValues(typeof(Hardware)))
-                    {
-                        Console.WriteLine($"  {type}");
-                    }
-                    return 2;
+                    Hardware = Hardware.Unknown;
                 }
 
                 var url = urlOption.HasValue() ? urlOption.Value() : _defaultUrl;
@@ -285,9 +284,52 @@ namespace BenchmarkServer
 
         private static async Task<int> Run(string url, string hostname, string dockerHostname)
         {
+            var isDefaultUrl = url == _defaultUrl;
+
+            // if the default url is used, check if the port is already in use
+            if (isDefaultUrl)
+            {
+                while (true)
+                {
+                    try
+                    {
+                        var localCts = new CancellationTokenSource();
+
+                        var localTask = new WebHostBuilder()
+                            .UseUrls(url)
+                            .UseKestrel()
+                            .Configure(_ => { })
+                            .ConfigureLogging((hostingContext, logging) =>
+                            {
+                                logging.ClearProviders();
+                            })
+                            .Build()
+                            .RunAsync(localCts.Token);
+
+                        localCts.Cancel();
+
+                        await localTask;
+
+                        break;
+                    }
+                    catch(IOException e)
+                    {
+                        if (e.InnerException is AddressInUseException)
+                        {
+                            var port = int.Parse(url.Substring(url.LastIndexOf(':') + 1));
+                            url = url.Replace(port.ToString(), (port + 1).ToString());
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
+                }
+            }
+
             var host = new WebHostBuilder()
                     .UseKestrel()
-                    .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long) 10 * 1024 * 1024 * 1024)
+                    .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = (long)10 * 1024 * 1024 * 1024)
                     .UseStartup<Startup>()
                     .UseUrls(url)
                     .ConfigureLogging((hostingContext, logging) =>
@@ -503,7 +545,6 @@ namespace BenchmarkServer
                                     {
                                         if (benchmarksDir != null)
                                         {
-                                            Debug.Assert(process == null);
                                             process = await StartProcess(hostname, Path.Combine(tempDir, benchmarksDir), job, dotnetHome);
 
                                             job.ProcessId = process.Id;
@@ -568,7 +609,7 @@ namespace BenchmarkServer
                                             if (!String.IsNullOrEmpty(dockerImage))
                                             {
                                                 // Check the container is still running
-                                                var inspectResult = ProcessUtil.Run("docker", "inspect -f {{.State.Running}} " + dockerContainerId, 
+                                                var inspectResult = ProcessUtil.Run("docker", "inspect -f {{.State.Running}} " + dockerContainerId,
                                                     captureOutput: true,
                                                     log: false, throwOnError: false);
 
@@ -866,7 +907,12 @@ namespace BenchmarkServer
                         }
                         else if (job.State == ServerState.Starting)
                         {
-                            if (DateTime.UtcNow - startMonitorTime > StartTimeout)
+                            var startTimeout = job.StartTimeout > TimeSpan.Zero
+                                ? job.StartTimeout
+                                : StartTimeout
+                                ;
+
+                            if (DateTime.UtcNow - startMonitorTime > startTimeout)
                             {
                                 Log.WriteLine($"Job didn't start during the expected delay");
                                 job.State = ServerState.Failed;
@@ -975,18 +1021,12 @@ namespace BenchmarkServer
 
                         async Task StopJobAsync()
                         {
-                            // Restore cgroup defaults
-                            //if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                            //{
-                            //    Log.WriteLine($"Resetting cgroup limits");
-                            //    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes=-1 /");
-                            //    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us=-1 /");
-                            //}
-
                             // Delete the benchmarks group
                             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
                             {
-                                ProcessUtil.Run("cgdelete", "cpu,memory,cpuset:benchmarks", log: true, throwOnError: false);
+                                var controller = GetCGroupController(job);
+
+                                ProcessUtil.Run("cgdelete", $"cpu,memory,cpuset:{controller}", log: true, throwOnError: false);
                             }
 
                             // Check if we already passed here
@@ -1316,7 +1356,7 @@ namespace BenchmarkServer
             Mono.Unix.Native.Syscall.kill(processId, Mono.Unix.Native.Signum.SIGINT);
 
             // Max delay for perfcollect to stop
-            var delay = Task.Delay(30000);
+            var delay = Task.Delay(PerfCollectTimeout);
 
             while (!perfCollectProcess.HasExited && !delay.IsCompletedSuccessfully)
             {
@@ -1325,7 +1365,7 @@ namespace BenchmarkServer
 
             if (!perfCollectProcess.HasExited)
             {
-                Log.WriteLine($"Forcing process to stop ...");
+                Log.WriteLine($"PerfCollect exceeded allowed time, stopping ...");
                 perfCollectProcess.CloseMainWindow();
 
                 if (!perfCollectProcess.HasExited)
@@ -1470,7 +1510,17 @@ namespace BenchmarkServer
                     buildParameters += $"--build-arg {argument} ";
                 }
 
-                ProcessUtil.Run("docker", $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}", workingDirectory: srcDir, timeout: BuildTimeout, cancellationToken: cancellationToken, log: true);
+                var dockerBuildArguments = $"build --pull {buildParameters} -t {imageName} -f {source.DockerFile} {workingDirectory}";
+
+                job.BuildLog.AddLine("docker " + dockerBuildArguments);
+
+                var buildResults = ProcessUtil.Run("docker", dockerBuildArguments, 
+                    workingDirectory: srcDir, 
+                    timeout: BuildTimeout, 
+                    cancellationToken: cancellationToken, 
+                    log: true,
+                    outputDataReceived: text => job.BuildLog.AddLine(text)
+                    );
 
                 stopwatch.Stop();
 
@@ -1484,12 +1534,21 @@ namespace BenchmarkServer
                 });
 
                 stopwatch.Reset();
+
+                if (buildResults.ExitCode != 0)
+                {
+                    job.Error = job.BuildLog.ToString();
+                }
             }
             else
             {
                 Log.WriteLine($"Loading docker image {source.DockerLoad} from {srcDir}");
 
-                ProcessUtil.Run("docker", $"load -i {source.DockerLoad} ", workingDirectory: srcDir, timeout: BuildTimeout, cancellationToken: cancellationToken, log: true);
+                var dockerLoadArguments = $"load -i {source.DockerLoad} ";
+
+                job.BuildLog.AddLine("docker " + dockerLoadArguments);
+
+                ProcessUtil.Run("docker", dockerLoadArguments, workingDirectory: srcDir, timeout: BuildTimeout, cancellationToken: cancellationToken, log: true);
             }
 
             if (cancellationToken.IsCancellationRequested)
@@ -1518,6 +1577,8 @@ namespace BenchmarkServer
             {
                 StartCollection(workingDirectory, job);
             }
+
+            job.BuildLog.AddLine("docker " + command);
 
             var result = ProcessUtil.Run("docker", $"{command} ", throwOnError: false, onStart: () => stopwatch.Start(), captureOutput: true);
 
@@ -1683,7 +1744,7 @@ namespace BenchmarkServer
                 catch(Exception e)
                 {
                     Log.WriteLine($"[ERROR] Invalid Json payload: " + e.Message);
-                }                
+                }
             }
         }
 
@@ -1971,7 +2032,7 @@ namespace BenchmarkServer
                 }
                 else if (String.Equals(job.SdkVersion, "edge", StringComparison.OrdinalIgnoreCase))
                 {
-                    sdkVersion = await ParseLatestVersionFile(String.Format(_sdkVersionUrl, "master"));
+                    sdkVersion = await ParseLatestVersionFile(_latestSdkVersionUrl);
                     Log.WriteLine($"Detecting edge SDK version (master branch): {sdkVersion}");
                 }
                 else
@@ -1996,7 +2057,7 @@ namespace BenchmarkServer
                 }
                 else
                 {
-                    sdkVersion = await ParseLatestVersionFile(String.Format(_sdkVersionUrl, "master"));
+                    sdkVersion = await ParseLatestVersionFile(_latestSdkVersionUrl);
                     Log.WriteLine($"Detecting runtime compatible SDK version (master branch): {sdkVersion}");
                 }
             }
@@ -2119,7 +2180,7 @@ namespace BenchmarkServer
                         dotnetInstallStep = $"SDK version '{sdkVersion}'";
 
                         // Install latest SDK version (and associated runtime)
-                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {sdkVersion} -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
                         log: true,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env));
@@ -2132,7 +2193,7 @@ namespace BenchmarkServer
                         dotnetInstallStep = $"Microsoft.NETCore.App shared runtime '{runtimeVersion}'";
 
                         // Install runtimes required for this scenario
-                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {runtimeVersion} -Runtime dotnet -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
                         log: true,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env));
@@ -2154,18 +2215,22 @@ namespace BenchmarkServer
                         }
                     }
 
-                    Log.WriteLine($"Forcing Windows Desktop version: {desktopVersion}");
-
-                    if (!_installedDesktopRuntimes.Contains(desktopVersion))
+                    // This is not defined from < 3.0
+                    if (!String.IsNullOrEmpty(desktopVersion))
                     {
-                        dotnetInstallStep = $"Microsoft.WindowsDesktop.App shared runtime '{desktopVersion}'";
+                        Log.WriteLine($"Forcing Windows Desktop version: {desktopVersion}");
 
-                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
-                        log: true,
-                        workingDirectory: _dotnetInstallPath,
-                        environmentVariables: env));
+                        if (!_installedDesktopRuntimes.Contains(desktopVersion))
+                        {
+                            dotnetInstallStep = $"Microsoft.WindowsDesktop.App shared runtime '{desktopVersion}'";
 
-                        _installedDesktopRuntimes.Add(desktopVersion);
+                            ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {desktopVersion} -Runtime windowsdesktop -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                            log: true,
+                            workingDirectory: _dotnetInstallPath,
+                            environmentVariables: env));
+
+                            _installedDesktopRuntimes.Add(desktopVersion);
+                        }
                     }
 
                     // The aspnet core runtime is only available for >= 2.1, in 2.0 the dlls are contained in the runtime store
@@ -2174,7 +2239,7 @@ namespace BenchmarkServer
                         dotnetInstallStep = $"Microsoft.AspNetCore.App shared runtime '{aspNetCoreVersion}'";
 
                         // Install aspnet runtime required for this scenario
-                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
+                        ProcessUtil.RetryOnException(3, () => ProcessUtil.Run("powershell", $"-NoProfile -ExecutionPolicy unrestricted [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; .\\dotnet-install.ps1 -Version {aspNetCoreVersion} -Runtime aspnetcore -NoPath -SkipNonVersionedFiles -InstallDir {dotnetHome}",
                         log: true,
                         workingDirectory: _dotnetInstallPath,
                         environmentVariables: env));
@@ -2284,7 +2349,7 @@ namespace BenchmarkServer
                     buildParameters += $"/p:MicrosoftNETPlatformLibrary=Microsoft.NETCore.App ";
                 }
             }
-            else if (targetFramework == "netcoreapp5.0")
+            else if (targetFramework == "netcoreapp5.0" || targetFramework == "net5.0")
             {
                 buildParameters += $"/p:MicrosoftNETCoreApp50PackageVersion={runtimeVersion} ";
                 buildParameters += $"/p:GenerateErrorForMissingTargetingPacks=false ";
@@ -2295,7 +2360,8 @@ namespace BenchmarkServer
             }
             else
             {
-                throw new NotSupportedException($"Unsupported framework: {targetFramework}");
+                job.Error = $"Unsupported framework: {targetFramework}";
+                return null;
             }
 
             // #1445 force no cache for restore to avoid restore failures for packages published within last 30 minutes
@@ -2430,7 +2496,7 @@ namespace BenchmarkServer
                         var found = false;
                         foreach (var feed in _runtimeFeedUrls)
                         {
-                            var url = $"https://{feed}/flatcontainer/microsoft.netcore.app.runtime.linux-x64/{runtimeVersion}/microsoft.netcore.app.runtime.linux-x64.{runtimeVersion}.nupkg";
+                            var url = $"{feed}/microsoft.netcore.app.runtime.linux-x64/{runtimeVersion}/microsoft.netcore.app.runtime.linux-x64.{runtimeVersion}.nupkg";
 
                             if (await DownloadFileAsync(url, runtimePath, maxRetries: 3, timeout: 60, throwOnError: false))
                             {
@@ -2895,7 +2961,9 @@ namespace BenchmarkServer
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && (job.MemoryLimitInBytes > 0 || job.CpuLimitRatio > 0 || !String.IsNullOrEmpty(job.CpuSet)))
             {
-                var cgcreate = ProcessUtil.Run("cgcreate", "-g memory,cpu,cpuset:benchmarks", log: true);
+                var controller = GetCGroupController(job);
+
+                var cgcreate = ProcessUtil.Run("cgcreate", $"-g memory,cpu,cpuset:{controller}", log: true);
 
                 if (cgcreate.ExitCode > 0)
                 {
@@ -2905,65 +2973,45 @@ namespace BenchmarkServer
 
                 if (job.MemoryLimitInBytes > 0)
                 {
-                    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes={job.MemoryLimitInBytes} benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes={job.MemoryLimitInBytes} {controller}", log: true);
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes=-1 benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes=-1 {controller}", log: true);
                 }
 
                 if (job.CpuLimitRatio > 0)
                 {
                     // Ensure the cfs_period_us is the same as what docker would use
-                    ProcessUtil.Run("cgset", $"-r cpu.cfs_period_us={_defaultDockerCfsPeriod} benchmarks", log: true);
-                    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us={Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)} benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r cpu.cfs_period_us={_defaultDockerCfsPeriod} {controller}", log: true);
+                    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us={Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)} {controller}", log: true);
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us=-1 benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us=-1 {controller}", log: true);
                 }
 
 
                 if (!String.IsNullOrEmpty(job.CpuSet))
                 {
 
-                    ProcessUtil.Run("cgset", $"-r cpuset.cpus={job.CpuSet} benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r cpuset.cpus={job.CpuSet} {controller}", log: true);
                 }
                 else
                 {
-                    ProcessUtil.Run("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount-1} benchmarks", log: true);
+                    ProcessUtil.Run("cgset", $"-r cpuset.cpus=0-{Environment.ProcessorCount-1} {controller}", log: true);
                 }
 
-                // The cpuset.mems value for the 'benchmarks' controller need to match the root one
+                // The cpuset.mems value for the 'benchmarks' controller needs to match the root one
                 // to be compatible with the allowed nodes
                 var memsRoot = File.ReadAllText("/sys/fs/cgroup/cpuset/cpuset.mems");
 
                 // Both cpus and mems need to be initialized
-                ProcessUtil.Run("cgset", $"-r cpuset.mems={memsRoot} benchmarks", log: true);
+                ProcessUtil.Run("cgset", $"-r cpuset.mems={memsRoot} {controller}", log: true);
 
-                commandLine = $"-g memory,cpu,cpuset:benchmarks {executable} {commandLine}";
+                commandLine = $"-g memory,cpu,cpuset:{controller} {executable} {commandLine}";
                 executable = "cgexec";
             }
-
-            //if (job.MemoryLimitInBytes > 0)
-            //{
-            //    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            //    {
-            //        Log.WriteLine($"Setting cgroup memory limits: {job.MemoryLimitInBytes}");
-
-            //        ProcessUtil.Run("cgset", $"-r memory.limit_in_bytes={job.MemoryLimitInBytes} /");
-            //    }
-            //}
-
-            //if (job.CpuLimitRatio > 0)
-            //{
-            //    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            //    {
-            //        Log.WriteLine($"Setting cgroup cpu limits: {job.CpuLimitRatio}");
-
-            //        ProcessUtil.Run("cgset", $"-r cpu.cfs_quota_us={Math.Floor(job.CpuLimitRatio * _defaultDockerCfsPeriod)} /", log: true);
-            //    }
-            //}
 
             Log.WriteLine($"Invoking executable: {executable}, with arguments: {commandLine}");
 
@@ -3143,6 +3191,12 @@ namespace BenchmarkServer
                     }
                 }
             }
+        }
+
+        private static string GetCGroupController(ServerJob job)
+        {
+            // Create a unique cgroup controller per agent
+            return $"benchmarks-{Process.GetCurrentProcess().Id}-{job.Id}";
         }
 
         private static void StartCounters(ServerJob job)
@@ -3403,9 +3457,9 @@ namespace BenchmarkServer
             try
             {
 
-                var packageName = "runtime.linux-x64.microsoft.netcore.runtime.mono";
+                var packageName = "Microsoft.NETCore.App.Runtime.Mono.linux-x64".ToLowerInvariant();
                 var runtimePath = Path.Combine(_rootTempDir, "RuntimePackages", $"{packageName}.{runtimeVersion}.nupkg");
-                
+
                 // Ensure the folder already exists
                 Directory.CreateDirectory(Path.GetDirectoryName(runtimePath));
 
@@ -3416,7 +3470,7 @@ namespace BenchmarkServer
                     var found = false;
                     foreach (var feed in _runtimeFeedUrls)
                     {
-                        var url = $"https://{feed}/flatcontainer/{packageName}/{runtimeVersion}/{packageName}.{runtimeVersion}.nupkg";
+                        var url = $"{feed}/{packageName}/{runtimeVersion}/{packageName}.{runtimeVersion}.nupkg";
 
                         if (await DownloadFileAsync(url, runtimePath, maxRetries: 3, timeout: 60, throwOnError: false))
                         {
@@ -3441,8 +3495,11 @@ namespace BenchmarkServer
 
                 using (var archive = ZipFile.OpenRead(runtimePath))
                 {
-                    var systemCoreLib = archive.GetEntry("runtimes/linux-x64/lib/netstandard1.0/System.Private.CoreLib.dll");
-                    systemCoreLib.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
+                    var systemCoreLib = archive.GetEntry("runtimes/linux-x64/lib/netcoreapp5.0/System.Private.CoreLib.dll");
+                    systemCoreLib?.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
+
+                    systemCoreLib = archive.GetEntry("runtimes/linux-x64/native/System.Private.CoreLib.dll");
+                    systemCoreLib?.ExtractToFile(Path.Combine(outputFolder, "System.Private.CoreLib.dll"), true);
 
                     var libcoreclr = archive.GetEntry("runtimes/linux-x64/native/libcoreclr.so");
                     libcoreclr.ExtractToFile(Path.Combine(outputFolder, "libcoreclr.so"), true);
@@ -3672,17 +3729,16 @@ namespace BenchmarkServer
                 // Unlisting these versions manually as they are breaking the order of 5.0.0-alpha.X
                 .Where(x => !x.StartsWith("5.0.0-alpha1"))
                 .Where(t => t.StartsWith(versionPrefix))
-                .ToArray();
+                .Select(x => new NuGetVersion(x))
+                .ToArray()
+                ;
 
             // Extract the highest version
-            var lastEntry = matchingVersions.LastOrDefault();
+            var latest = matchingVersions
+                .OrderByDescending(v => v, VersionComparer.Default)
+                .FirstOrDefault();
 
-            if (lastEntry != null)
-            {
-                return lastEntry;
-            }
-
-            return null;
+            return latest?.OriginalVersion;
         }
 
         // Compares just the repository name
@@ -3843,7 +3899,7 @@ namespace BenchmarkServer
         public static Task EnsureDotnetInstallExistsAsync()
         {
             Log.WriteLine($"Checking requirements...");
-            
+
             if (String.IsNullOrEmpty(_rootTempDir))
             {
                 // From the /tmp folder (in Docker, should be mounted to /mnt/benchmarks) use a specific 'benchmarksserver' root folder to isolate from other services

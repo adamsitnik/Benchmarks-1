@@ -178,6 +178,8 @@ namespace BenchmarksDriver
                 "Don't execute the job if the server is not running on Windows", CommandOptionType.NoValue);
             var linuxOnlyOption = app.Option("--linux-only",
                 "Don't execute the job if the server is not running on Linux", CommandOptionType.NoValue);
+            var archOption = app.Option("--arch",
+                "Don't execute the job if the server is not running on the specified architecture (x64, arm64) ", CommandOptionType.SingleValue);
             var saveOption = app.Option("--save",
                 "Stores the results in a local file, e.g. --save baseline. If the extension is not specified, '.bench.json' is used.", CommandOptionType.SingleValue);
             var diffOption = app.Option("--diff",
@@ -310,6 +312,8 @@ namespace BenchmarksDriver
                 @"Can be a file prefix (app will add *.DATE*.zip) , or a specific name (end in *.zip) and no DATE* will be added e.g. --fetch-output c:\publishedapps\myApp", CommandOptionType.SingleValue);
             var serverTimeoutOption = app.Option("--server-timeout",
                 "Timeout for server jobs. e.g., 00:05:00", CommandOptionType.SingleValue);
+            var startTimeoutOption = app.Option("--start-timeout",
+                "Timeout for start phase. e.g., 00:05:00", CommandOptionType.SingleValue);
             var buildTimeoutOption = app.Option("--build-timeout",
                 "Timeout for build phase. e.g., 00:30:00. Defaults to 00:30:00.", CommandOptionType.SingleValue);
             var frameworkOption = app.Option("--framework",
@@ -337,9 +341,9 @@ namespace BenchmarksDriver
             var connectionsOption = app.Option("--connections",
                 "Number of connections used by client. Default is 256.", CommandOptionType.SingleValue);
             var durationOption = app.Option("--duration",
-                "Duration of client job in seconds. Default is 15.", CommandOptionType.SingleValue);
+                "Duration of client job in seconds. Default is 15.", CommandOptionType.MultipleValue);
             var warmupOption = app.Option("--warmup",
-                "Duration of warmup in seconds. Default is 15. 0 disables the warmup and is equivalent to --no-warmup.", CommandOptionType.SingleValue);
+                "Duration of warmup in seconds. Default is 15. 0 disables the warmup and is equivalent to --no-warmup.", CommandOptionType.MultipleValue);
             var noWarmupOption = app.Option("--no-warmup",
                 "Disables the warmup phase.", CommandOptionType.NoValue);
             var headerOption = app.Option("--header",
@@ -414,7 +418,18 @@ namespace BenchmarksDriver
                 var iterations = 1;
                 var exclude = 0;
 
-                var sqlConnectionString = sqlConnectionStringOption.Value();
+                string sqlConnectionString = null;
+
+                if (sqlConnectionStringOption.HasValue())
+                {
+                    sqlConnectionString = sqlConnectionStringOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(sqlConnectionString)))
+                    {
+                        sqlConnectionString = Environment.GetEnvironmentVariable(sqlConnectionString);
+                    }
+                }
+
                 TimeSpan span = TimeSpan.Zero;
 
                 if (!Enum.TryParse(schemeValue, ignoreCase: true, result: out Scheme scheme) ||
@@ -464,6 +479,11 @@ namespace BenchmarksDriver
                 if (sqlTableOption.HasValue())
                 {
                     _tableName = sqlTableOption.Value();
+
+                    if (!String.IsNullOrEmpty(Environment.GetEnvironmentVariable(_tableName)))
+                    {
+                        _tableName = Environment.GetEnvironmentVariable(_tableName);
+                    }
                 }
 
                 var scenarioName = scenarioOption.Value() ?? "Default";
@@ -699,6 +719,18 @@ namespace BenchmarksDriver
                 {
                     serverJob.UseRuntimeStore = true;
                 }
+                if (startTimeoutOption.HasValue())
+                {
+                    if (TimeSpan.TryParse(startTimeoutOption.Value(), out var startTimeout))
+                    {
+                        serverJob.StartTimeout = startTimeout;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid --start-timeout timeout argument");
+                        return -1;
+                    }
+                }
                 if (selfContainedOption.HasValue())
                 {
                     serverJob.SelfContained = true;
@@ -757,7 +789,17 @@ namespace BenchmarksDriver
                         }
                         else
                         {
-                            serverJob.Arguments += $" {arg.Substring(0, equalSignIndex)} {arg.Substring(equalSignIndex + 1)}";
+                            var name = arg.Substring(0, equalSignIndex);
+                            var value = arg.Substring(equalSignIndex + 1);
+
+                            if (value.Any(char.IsWhiteSpace) && !value.StartsWith('"') && !value.EndsWith('"'))
+                            {
+                                serverJob.Arguments += $" {name} \"{value}\"";
+                            }
+                            else
+                            {
+                                serverJob.Arguments += $" {name} {value}";
+                            }
                         }
                     }
                 }
@@ -1035,7 +1077,7 @@ namespace BenchmarksDriver
                 {
                     if (!Enum.TryParse<Worker>(clientNameOption.Value(), ignoreCase: true, result: out var worker))
                     {
-                        Log($"Could not find worker {clientNameOption.Value()}");
+                        Log($"Could not find worker {clientNameOption.Value()}", error: true);
                         return 9;
                     }
 
@@ -1108,11 +1150,21 @@ namespace BenchmarksDriver
                 }
                 if (durationOption.HasValue())
                 {
-                    _clientJob.Duration = int.Parse(durationOption.Value());
+                    if (durationOption.Values.Count > 1)
+                    {
+                        Log($"WARNING: '--duration' has been defined multiple times, using the last occurence.");
+                    }
+
+                    _clientJob.Duration = int.Parse(durationOption.Values.Last());
                 }
                 if (warmupOption.HasValue())
                 {
-                    _clientJob.Warmup = int.Parse(warmupOption.Value());
+                    if (warmupOption.Values.Count > 1)
+                    {
+                        Log($"WARNING: '--warmup' has been defined multiple times, using the last occurence.");
+                    }
+
+                    _clientJob.Warmup = int.Parse(warmupOption.Values.Last());
                 }
                 if (noWarmupOption.HasValue())
                 {
@@ -1222,6 +1274,7 @@ namespace BenchmarksDriver
                     markdownOption,
                     writeToFileOption,
                     requiredOperatingSystem,
+                    archOption,
                     saveOption,
                     diffOption
                     ).Result;
@@ -1287,6 +1340,7 @@ namespace BenchmarksDriver
             CommandOption markdownOption,
             CommandOption writeToFileOption,
             Benchmarks.ServerJob.OperatingSystem? requiredOperatingSystem,
+            CommandOption archOption,
             CommandOption saveOption,
             CommandOption diffOption
             )
@@ -1310,6 +1364,30 @@ namespace BenchmarksDriver
             if (!string.IsNullOrWhiteSpace(sqlConnectionString))
             {
                 await serializer.InitializeDatabaseAsync(sqlConnectionString, _tableName);
+            }
+
+            // Checking architecture
+
+            if (archOption.HasValue())
+            {
+                try
+                {
+                    var info = await _httpClient.GetStringAsync(serverJobsUri + "/info");
+
+                    var obj = JObject.Parse(info);
+                    var arch = obj["arch"]?.ToString();
+
+                    if (!String.Equals(arch, archOption.Value(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        Log($"Job ignored on this architecture {arch}, stopping job ...", error: true);
+                        return 0;
+                    }
+                }
+                catch(Exception e)
+                {
+                    LogVerbose(e.ToString());
+                    return -1;
+                }
             }
 
             serverJob.DriverVersion = 1;
@@ -1360,13 +1438,13 @@ namespace BenchmarksDriver
                                 continue;
                             }
 
-                            Log(responseContent);
+                            Log(responseContent, error: true);
                             throw new InvalidOperationException("Invalid response from the server");
                         }
 
                         if (serverJob.ServerVersion < 3)
                         {
-                            Log($"Invalid server version ({serverJob.ServerVersion}), please update your server to match this driver version.");
+                            Log($"Invalid server version ({serverJob.ServerVersion}), please update your server to match this driver version.", error: true);
                             return 20;
                         }
 
@@ -1387,7 +1465,7 @@ namespace BenchmarksDriver
 
                         if (requiredOperatingSystem.HasValue && requiredOperatingSystem.Value != serverJob.OperatingSystem)
                         {
-                            Log($"Job ignored on this OS, stopping job ...");
+                            Log($"Job ignored on this OS, stopping job ...", error: true);
 
                             response = await _httpClient.PostAsync(serverJobUri + "/stop", new StringContent(""));
                             LogVerbose($"{(int)response.StatusCode} {response.StatusCode}");
@@ -1541,7 +1619,9 @@ namespace BenchmarksDriver
                                 {
                                     var outputFileSegments = outputFileValue.Split(';', 2, StringSplitOptions.RemoveEmptyEntries);
 
-                                    foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), SearchOption.TopDirectoryOnly))
+                                    var shouldSearchRecursively = outputFileSegments[0].Contains("*.*");
+
+                                    foreach (var resolvedFile in Directory.GetFiles(Path.GetDirectoryName(outputFileSegments[0]), Path.GetFileName(outputFileSegments[0]), shouldSearchRecursively ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
                                     {
                                         var resolvedFileWithDestination = resolvedFile;
 
@@ -1629,7 +1709,7 @@ namespace BenchmarksDriver
                         }
                         else if (serverJob.State == ServerState.Failed)
                         {
-                            Log($"Job failed on benchmark server, stopping...");
+                            Log($"Job failed on benchmark server, stopping...", error: true);
 
                             
                             if (_displayOutput)
@@ -1646,7 +1726,7 @@ namespace BenchmarksDriver
                         }
                         else if (serverJob.State == ServerState.NotSupported)
                         {
-                            Log("Server does not support this job configuration.");
+                            Log("Server does not support this job configuration.", error: true);
                             return 0;
                         }
                         else if (serverJob.State == ServerState.Stopped)
@@ -1773,9 +1853,7 @@ namespace BenchmarksDriver
                             }
                             else
                             {
-                                Console.ForegroundColor = ConsoleColor.White;
-                                Log($"Server job running for more than {_jobTimeout}, stopping...");
-                                Console.ResetColor();
+                                Log($"Server job running for more than {_jobTimeout}, stopping...", error: true);
                                 serverJob.State = ServerState.Failed;
                             }
 
@@ -1910,7 +1988,7 @@ namespace BenchmarksDriver
 
                                     if (response.StatusCode == HttpStatusCode.NotFound || String.IsNullOrEmpty(responseContent))
                                     {
-                                        Log($"The job was forcibly stopped by the server.");
+                                        Log($"The job was forcibly stopped by the server.", error: true);
                                         return 1;
                                     }
 
@@ -1926,7 +2004,7 @@ namespace BenchmarksDriver
                                     }
                                     else
                                     {
-                                        Log($"Unexpected state: {serverJob.State}");
+                                        Log($"Unexpected state: {serverJob.State}", error: true);
                                     }
 
                                     await Task.Delay(1000);
@@ -1949,7 +2027,7 @@ namespace BenchmarksDriver
                                 }
                                 catch (HttpRequestException)
                                 {
-                                    Log($"FAILED: The trace was not successful");
+                                    Log($"FAILED: The trace was not successful", error: true);
                                 }
                             }
 
@@ -1970,7 +2048,7 @@ namespace BenchmarksDriver
 
                                     if (response.StatusCode == HttpStatusCode.NotFound || String.IsNullOrEmpty(responseContent))
                                     {
-                                        Log($"The job was forcibly stopped by the server.");
+                                        Log($"The job was forcibly stopped by the server.", error: true);
                                         return 1;
                                     }
 
@@ -1986,7 +2064,7 @@ namespace BenchmarksDriver
                                     }
                                     else
                                     {
-                                        Log($"Unexpected state: {serverJob.State}");
+                                        Log($"Unexpected state: {serverJob.State}", error: true);
                                     }
 
                                     await Task.Delay(1000);
@@ -2007,7 +2085,7 @@ namespace BenchmarksDriver
                                 }
                                 catch (HttpRequestException)
                                 {
-                                    Log($"FAILED: The trace was not successful");
+                                    Log($"FAILED: The trace was not successful", error: true);
                                 }
                             }
 
@@ -2287,7 +2365,7 @@ namespace BenchmarksDriver
 
                         if (response.StatusCode == HttpStatusCode.NotFound || String.IsNullOrEmpty(responseContent))
                         {
-                            Log($"The job was forcibly stopped by the server.");
+                            Log($"The job was forcibly stopped by the server.", error: true);
                             return 0;
                         }
 
@@ -2296,7 +2374,7 @@ namespace BenchmarksDriver
                         if (DateTime.UtcNow - jobStoppedUtc > TimeSpan.FromSeconds(30))
                         {
                             // The job needs to be deleted
-                            Log($"Server didn't stop the job in the expected time, deleting it ...");
+                            Log($"Server didn't stop the job in the expected time, deleting it ...", error: true);
 
                             break;
                         }
@@ -2327,7 +2405,7 @@ namespace BenchmarksDriver
                         }
                         catch (Exception e)
                         {
-                            Log($"Error while downloading EventPipe file {EventPipeOutputFile}");
+                            Log($"Error while downloading EventPipe file {EventPipeOutputFile}", error: true);
                             LogVerbose(e.Message);
                         }
                     }
@@ -2335,8 +2413,8 @@ namespace BenchmarksDriver
                 }
                 catch (Exception e)
                 {
-                    Log($"Interrupting due to an unexpected exception");
-                    Log(e.ToString());
+                    Log($"Interrupting due to an unexpected exception", error: true);
+                    Log(e.ToString(), error: true);
 
                     return -1;
                 }
@@ -2367,7 +2445,7 @@ namespace BenchmarksDriver
                             }
                             catch (Exception e)
                             {
-                                Log($"Error while downloading published application");
+                                Log($"Error while downloading published application", error: true);
                                 LogVerbose(e.Message);
                             }
                         }
@@ -2394,7 +2472,7 @@ namespace BenchmarksDriver
                                 }
                                 catch (Exception e)
                                 {
-                                    Log($"Error while downloading file {file}, skipping ...");
+                                    Log($"Error while downloading file {file}, skipping ...", error: true);
                                     LogVerbose(e.Message);
                                     continue;
                                 }
@@ -2414,7 +2492,7 @@ namespace BenchmarksDriver
                             }
                             catch (Exception e)
                             {
-                                Log($"Error while downloading build logs");
+                                Log($"Error while downloading build logs", error: true);
                                 LogVerbose(e.Message);
                             }
                         }
@@ -2431,8 +2509,8 @@ namespace BenchmarksDriver
                             - Issue while cloning the repository (GitHub unresponsive)
                             - Issue while restoring (MyGet/NuGet unresponsive)
                             - Issue while building
-                            - Issue while running (Timeout)"
-                            );
+                            - Issue while running (Timeout)",
+                            error: true);
                         }
 
                         response.EnsureSuccessful();
@@ -2803,15 +2881,15 @@ namespace BenchmarksDriver
                 Console.ForegroundColor = ConsoleColor.Red;
             }
 
-            if (!_quiet)
+            if (!_quiet || error)
             {
-                var time = DateTime.Now.ToString("hh:mm:ss.fff");
                 if (notime)
                 {
                     Console.WriteLine(message);
                 }
                 else
                 {
+                    var time = DateTime.Now.ToString("hh:mm:ss.fff");
                     Console.WriteLine($"[{time}] {message}");
                 }
             }
@@ -2946,7 +3024,12 @@ namespace BenchmarksDriver
 
                 var nth = (int)Math.Ceiling((double)orderedList.Length * percentile / 100);
 
-                return orderedList[nth];
+                if (orderedList.Length > nth)
+                {
+                    return orderedList[nth];
+                }
+
+                return 0;
             };
         }
 

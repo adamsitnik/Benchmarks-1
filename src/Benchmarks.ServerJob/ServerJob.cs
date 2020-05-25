@@ -197,6 +197,9 @@ namespace Benchmarks.ServerJob
 
         public int Timeout { get; set; } = 0;
 
+        // Custom StartTimeout for the server job
+        public TimeSpan StartTimeout { get; set; } = TimeSpan.Zero;
+
         public Options Options { get; set; } = new Options();
 
         public List<string> Features { get; set; } = new List<string>();
@@ -216,6 +219,7 @@ namespace Benchmarks.ServerJob
         public string TraceOutput { get; set; }
         public bool DisplayBuild { get; set; }
         public string RequiredOperatingSystem { get; set; }
+        public string RequiredArchitecture { get; set; }
         public bool DiscardResults { get; set; }
         public List<string> BuildFiles { get; set; } = new List<string>();
         public List<string> OutputFiles { get; set; } = new List<string>();

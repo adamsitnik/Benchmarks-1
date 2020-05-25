@@ -1,0 +1,116 @@
+parameters:
+- name: server
+  type: string
+  default: ''
+- name: client
+  type: string
+  default: ''
+- name: warmup
+  type: number
+  default: 15
+- name: duration
+  type: number
+  default: 15
+- name: connection
+  type: string
+  default: ''
+- name: skip
+  type: string
+  default: ''
+
+# Baselines
+- name: baselines 
+  type: object
+  default: 
+  
+  - displayName: "2.1"
+    arguments: --description Baseline21 --aspnetCoreVersion 2.1 --runtimeVersion 2.1 --sdk 2.1.805
+    supportsPlatform: false
+
+# TODO: define latest servicing runtime version manually
+#  - displayName: "2.1 Servicing"
+#    arguments: --description Baseline21Servicing --aspnetCoreVersion 2.1.* --runtimeVersion 2.1.*
+#    supportsPlatform: false
+
+  - displayName: "3.1"
+    arguments: --description Baseline31 --aspnetCoreVersion 3.1 --runtimeVersion 3.1 --sdk 3.1.201
+    supportsPlatform: true
+
+  - displayName: "5.0.*"
+  # Current dev, running close to other baselines, with same repeat parameters
+    arguments: --description Baseline --runtimeversion 5.0.* --aspnetcoreversion 5.0.0-preview.5.20255.6
+    supportsPlatform: true
+
+# Scenarios
+- name: scenarios 
+  type: object
+  default: 
+
+  # Platform
+  - displayName: Plaintext Platform
+    arguments: --scenario PlaintextPlatform $(plaintextPlatformJobs)
+    isPlatform: true
+  - displayName: Json Platform
+    arguments: --scenario JsonPlatform --connections 512 $(jsonPlatformJobs)
+    isPlatform: true
+  - displayName: Fortunes Platform
+    arguments: --scenario FortunesPlatform $(htmlPlatformJobs) --database PostgreSql
+    isPlatform: true
+
+  # Plaintext
+  - displayName: Plaintext
+    arguments: --scenario Plaintext $(plaintextJobs)
+    isPlatform: false
+  - displayName: Plaintext Non-Pipelined
+    arguments: --scenario PlaintextNonPipelined $(plaintextJobs)
+    isPlatform: false
+  - displayName: Plaintext Mvc
+    arguments: --scenario MvcPlaintext $(plaintextJobs)
+    isPlatform: false
+  - displayName: Plaintext Endpoint
+    arguments: --scenario EndpointPlaintext $(plaintextJobs)
+    isPlatform: false
+  
+  # JSon
+  - displayName: Json
+    arguments: --scenario Json $(jsonJobs)
+    isPlatform: false
+  - displayName: Json Mvc
+    arguments: --scenario MvcJson $(jsonJobs)
+    isPlatform: false
+  
+  # Https
+  - displayName: Plaintext Https
+    arguments: --scenario Plaintext -m https $(plaintextJobs)
+    isPlatform: false
+  - displayName: Json Https
+    arguments: --scenario Json -m https $(jsonJobs)
+    isPlatform: false
+  - displayName: Plaintext Non-Pipelined Https
+    arguments: --scenario PlaintextNonPipelined -m https $(plaintextJobs)
+    isPlatform: false
+  
+  # Database Fortunes
+  - displayName: Database Fortunes Raw
+    arguments: --scenario DbFortunesRaw $(htmlJobs) --database PostgreSql
+    isPlatform: false
+  - displayName: Database Fortunes EF
+    arguments: --scenario DbFortunesEf $(htmlJobs) --database PostgreSql
+    isPlatform: false
+
+steps:
+- ${{ each s in parameters.scenarios }}:
+  - ${{ each b in parameters.baselines }}:
+    - ${{ if or( eq(b.supportsPlatform, true), eq(s.isPlatform, false)) }}:
+      - task: PublishToAzureServiceBus@1
+        condition: succeededOrFailed()
+        displayName: "${{ s.displayName }} - ${{ b.displayName }}"
+        enabled: ${{ ne(b.displayName, parameters.skip) }}
+        inputs:
+          connectedServiceName: ${{ parameters.connection }}
+          waitForCompletion: true
+          messageBody: |
+            {
+              "name": "benchmarksdriver",
+              "args": [ "${{ s.arguments }} ${{ b.arguments }} --server ${{ parameters.server }} --client ${{ parameters.client }} --self-contained --warmup ${{ parameters.warmup }} --duration ${{ parameters.duration }} --session $(session) --table AspNetBaselines --sql SQL_CONNECTION_STRING" ]
+            }

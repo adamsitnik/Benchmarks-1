@@ -1,0 +1,34 @@
+jobs:
+  grpcGoClient:
+    source:
+      Repository: https://github.com/aspnet/benchmarks.git
+      BranchOrCommit: master
+      dockerImageName: go-grpc-client
+      dockerContextDirectory: src/BenchmarksApps/Grpc/GoClient/
+      dockerFile: src/BenchmarksApps/Grpc/GoClient/Dockerfile
+    readyStateText: gRPC Client
+    waitForExit: true
+    variables:
+      connections: 1
+      warmup: 5
+      duration: 5
+      scenario: unary
+      protocol: h2c
+      grpcClientType: GrpcGoClient
+      requestSize: 0
+      responseSize: 0
+      streams: 1
+    environmentVariables:
+      SERVER_ADDR: '{{serverUri}}:{{serverPort}}'
+      PROTOCOL: '{{protocol}}'
+      SCENARIO: '{{scenario}}'
+      CONNECTIONS: '{{connections}}'
+      STREAMS: '{{streams}}'
+      DURATION: '{{duration}}'
+      WARMUP: '{{warmup}}'
+      REQUEST_SIZE: '{{requestSize}}'
+      RESPONSE_SIZE: '{{responseSize}}'
+      #GRPC_GO_LOG_VERBOSITY_LEVEL: 99
+      #GRPC_GO_LOG_SEVERITY_LEVEL: info
+    options:
+      requiredOperatingSystem: linux

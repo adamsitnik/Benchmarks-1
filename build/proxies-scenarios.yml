@@ -1,0 +1,69 @@
+# Proxy scenarios
+
+parameters:
+- name: profile
+  type: string
+  default: ''
+- name: warmup
+  type: number
+  default: 5
+- name: duration
+  type: number
+  default: 15
+- name: connection
+  type: string
+  default: ''
+
+# Scenarios
+- name: scenarios 
+  type: object
+  default: 
+
+  - displayName: Baseline
+    arguments: --scenario proxy-baseline    $(proxyJobs) --property proxy=none
+  - displayName: HttpClient
+    arguments: --scenario proxy-httpclient  $(proxyJobs) --property proxy=httpclient --application.runtimeversion 5.0.*
+  - displayName: NGinx
+    arguments: --scenario proxy-nginx       $(proxyJobs) --property proxy=nginx
+  - displayName: HAProxy
+    arguments: --scenario proxy-haproxy     $(proxyJobs) --property proxy=haproxy
+  - displayName: Envoy
+    arguments: --scenario proxy-envoy       $(proxyJobs) --property proxy=envoy
+  - displayName: YARP
+    arguments: --scenario proxy-yarp        $(yarpJobs)  --property proxy=yarp --application.runtimeversion 5.0.*
+
+- name: payloads
+  type: object
+  default:
+    - displayName: "10 B"
+      arguments: --variable path=/?s=10 --property payload=10
+    - displayName: "100 B"
+      arguments: --variable path=/?s=100 --property payload=100
+    - displayName: "1 KB"
+      arguments: --variable path=/?s=1024 --property payload=1024
+    - displayName: "10 KB"
+      arguments: --variable path=/?s=10240 --property payload=10240
+    - displayName: "100 KB"
+      arguments: --variable path=/?s=102400 --property payload=102400
+
+- name: protocols
+  type: object
+  default:
+    - displayName: http
+      arguments: --variable protocol=http --property protocol=http
+
+steps:
+- ${{ each s in parameters.scenarios }}:
+  - ${{ each payload in parameters.payloads }}:
+    - ${{ each protocol in parameters.protocols }}:
+      - task: PublishToAzureServiceBus@1
+        condition: succeededOrFailed()
+        displayName: ${{ s.displayName }} ${{ payload.displayName }} ${{ protocol.displayName }}
+        inputs:
+          connectedServiceName: ${{ parameters.connection }}
+          waitForCompletion: true
+          messageBody: |
+            {
+              "name": "benchmarksdriver2",
+              "args": [ "--table ProxyBenchmarks --sql SQL_CONNECTION_STRING --session $(session) --profile ${{ parameters.profile }} --no-metadata --no-measurements --load.variables.warmup ${{ parameters.warmup }} --load.variables.duration ${{ parameters.duration }} ${{ s.arguments }} ${{ payload.arguments }} ${{ protocol.arguments }}" ]
+            }

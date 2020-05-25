@@ -126,7 +126,7 @@ namespace BenchmarksDriver
             _profileOption = app.Option("--profile", "Profile name", CommandOptionType.MultipleValue);
             _outputOption = app.Option("-o|--output", "Output filename", CommandOptionType.SingleValue);
             _compareOption = app.Option("--compare", "An optional filename to compare the results to. Can be used multiple times.", CommandOptionType.MultipleValue);
-            _variableOption = app.Option("-v|--variable", "Variable", CommandOptionType.MultipleValue);
+            _variableOption = app.Option("--variable", "Variable", CommandOptionType.MultipleValue);
             _sqlConnectionStringOption = app.Option("--sql",
                 "Connection string of the SQL Server Database to store results in", CommandOptionType.SingleValue);
             _sqlTableOption = app.Option("--table",
@@ -478,17 +478,25 @@ namespace BenchmarksDriver
 
                             // Check that each configured agent endpoint for this service 
                             // has a compatible OS
-                            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem))
+                            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem)
+                                || !String.IsNullOrEmpty(service.Options.RequiredArchitecture))
                             {
                                 foreach (var job in jobs)
                                 {
                                     var info = await job.GetInfoAsync();
 
                                     var os = info["os"]?.ToString();
+                                    var arch = info["arch"]?.ToString();
 
-                                    if (!String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
+                                    if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem) && !String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
                                     {
                                         Log.Write($"Scenario skipped as the agent doesn't match the OS constraint ({service.Options.RequiredOperatingSystem}) on service '{jobName}'");
+                                        return new ExecutionResult();
+                                    }
+
+                                    if (!String.IsNullOrEmpty(service.Options.RequiredArchitecture) && !String.Equals(arch, service.Options.RequiredArchitecture, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        Log.Write($"Scenario skipped as the agent doesn't match the architecture constraint ({service.Options.RequiredOperatingSystem}) on service '{jobName}'");
                                         return new ExecutionResult();
                                     }
                                 }
@@ -779,15 +787,23 @@ namespace BenchmarksDriver
 
             // Check that each configured agent endpoint for this service 
             // has a compatible OS
-            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem))
+            if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem)
+                || !String.IsNullOrEmpty(service.Options.RequiredArchitecture))
             {
                 var info = await job.GetInfoAsync();
 
                 var os = info["os"]?.ToString();
+                var arch = info["arch"]?.ToString();
 
-                if (!String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
+                if (!String.IsNullOrEmpty(service.Options.RequiredOperatingSystem) && !String.Equals(os, service.Options.RequiredOperatingSystem, StringComparison.OrdinalIgnoreCase))
                 {
                     Log.Write($"Scenario skipped as the agent doesn't match the OS constraint ({service.Options.RequiredOperatingSystem}) on service '{jobName}'");
+                    return new ExecutionResult();
+                }
+
+                if (!String.IsNullOrEmpty(service.Options.RequiredArchitecture) && !String.Equals(arch, service.Options.RequiredArchitecture, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Write($"Scenario skipped as the agent doesn't match the architecture constraint ({service.Options.RequiredArchitecture}) on service '{jobName}'");
                     return new ExecutionResult();
                 }
             }
@@ -1101,24 +1117,9 @@ namespace BenchmarksDriver
                     throw new Exception($"Could not find a profile named '{profileName}'");
                 }
 
-                var mergeOptions = new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace, MergeNullValueHandling = MergeNullValueHandling.Merge };
-
                 var profile = (JObject)configuration["Profiles"][profileName];
 
-                // Fix casing
-                if (profile["variables"] != null)
-                {
-                    profile[nameof(Configuration.Variables)] = profile["variables"];
-                    profile.Remove("variables");
-                }
-
-                if (profile["jobs"] != null)
-                {
-                    profile[nameof(Configuration.Jobs)] = profile["jobs"];
-                    profile.Remove("jobs");
-                }
-
-                configuration.Merge(profile, mergeOptions);
+                PatchObject(configuration, profile);
             }
 
             // Apply custom arguments
@@ -1288,6 +1289,9 @@ namespace BenchmarksDriver
             }            
         }
 
+        /// <summary>
+        /// Merges a JObject into another one.
+        /// </summary>
         public static void PatchObject(JObject source, JObject patch)
         {
             foreach(var patchProperty in patch)
@@ -1308,7 +1312,13 @@ namespace BenchmarksDriver
                     }
                     else if (sourceProperty.Value.Type == JTokenType.Array)
                     {
-                        ((JArray)sourceProperty.Value).Add(patchProperty.Value.DeepClone());
+                        if (patchProperty.Value.Type == JTokenType.Array)
+                        {
+                            foreach(var value in (JArray)patchProperty.Value)
+                            {
+                                ((JArray)sourceProperty.Value).Add(value.DeepClone());
+                            }
+                        }                        
                     }
                     else
                     {

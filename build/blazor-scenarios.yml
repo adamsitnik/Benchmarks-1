@@ -1,0 +1,31 @@
+# Blazor scenarios
+
+parameters:
+- name: server # the url of the agent service, e.g. http://asp-perf-lin:5001
+  type: string
+  default: ''
+- name: connection
+  type: string
+  default: ''
+
+# Scenarios
+- name: scenarios 
+  type: object
+  default: 
+
+  - displayName: Blazor Wasm
+    arguments: --scenario blazorwasmbenchmark $(blazorWasmJobs) --application.options.requiredOperatingSystem Linux
+
+steps:
+- ${{ each s in parameters.scenarios }}:
+  - task: PublishToAzureServiceBus@1
+    condition: succeededOrFailed()
+    displayName: ${{ s.displayName }}
+    inputs:
+      connectedServiceName: ${{ parameters.connection }}
+      waitForCompletion: true
+      messageBody: |
+        {
+          "name": "benchmarksdriver2",
+          "args": [ "--application.endpoints ${{ parameters.server }} --session $(session) ${{ s.arguments }} --table BlazorWasm --sql SQL_CONNECTION_STRING" ]
+        }
