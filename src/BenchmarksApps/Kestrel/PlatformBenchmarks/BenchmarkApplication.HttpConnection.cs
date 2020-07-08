@@ -69,6 +69,8 @@ namespace PlatformBenchmarks
                 }
 
                 await Writer.FlushAsync(default);
+
+                Thread.Yield(); // try to Yield the execution as we know that data is not ready in ReadAsync yet
             }
         }
 
