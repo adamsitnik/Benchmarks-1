@@ -6,20 +6,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Memory;
 using Npgsql;
 
 namespace PlatformBenchmarks
 {
     public class RawDb
     {
+        private const int MaxCount = 10001;
         private readonly ConcurrentRandom _random;
         private readonly string _connectionString;
-        private readonly MemoryCache _cache = new MemoryCache(
-            new MemoryCacheOptions()
-            {
-                ExpirationScanFrequency = TimeSpan.FromMinutes(60)
-            });
+        private readonly CachedWorld[] _cache = new CachedWorld[MaxCount];
 
         public RawDb(ConcurrentRandom random, AppSettings appSettings)
         {
@@ -55,7 +51,7 @@ namespace PlatformBenchmarks
                     for (int i = 0; i < result.Length; i++)
                     {
                         result[i] = await ReadSingleRow(cmd);
-                        idParameter.TypedValue = _random.Next(1, 10001);
+                        idParameter.TypedValue = _random.Next(1, MaxCount);
                     }
                 }
             }
@@ -66,58 +62,15 @@ namespace PlatformBenchmarks
         public Task<World[]> LoadCachedQueries(int count)
         {
             var result = new World[count];
-            var cacheKeys = _cacheKeys;
             var cache = _cache;
             var random = _random;
             for (var i = 0; i < result.Length; i++)
             {
                 var id = random.Next(1, 10001);
-                var key = cacheKeys[id];
-                if (cache.TryGetValue(key, out object cached))
-                {
-                    result[i] = (CachedWorld)cached;
-                }
-                else
-                {
-                    return LoadUncachedQueries(id, i, count, this, result);
-                }
+                result[i] = cache[id];
             }
 
             return Task.FromResult(result);
-
-            static async Task<World[]> LoadUncachedQueries(int id, int i, int count, RawDb rawdb, World[] result)
-            {
-                using (var db = new NpgsqlConnection(rawdb._connectionString))
-                {
-                    await db.OpenAsync();
-
-                    var (cmd, idParameter) = rawdb.CreateReadCommand(db);
-                    using (cmd)
-                    {
-                        Func<ICacheEntry, Task<CachedWorld>> create = async (entry) => 
-                        {
-                            return await rawdb.ReadSingleRow(cmd);
-                        };
-
-                        var cacheKeys = _cacheKeys;
-                        var key = cacheKeys[id];
-
-                        idParameter.TypedValue = id;
-
-                        for (; i < result.Length; i++)
-                        {
-                            var data = await rawdb._cache.GetOrCreateAsync<CachedWorld>(key, create);
-                            result[i] = data;
-
-                            id = rawdb._random.Next(1, 10001);
-                            idParameter.TypedValue = id;
-                            key = cacheKeys[id];
-                        }
-                    }
-                }
-
-                return result;
-            }
         }
 
         public async Task PopulateCache()
@@ -129,12 +82,11 @@ namespace PlatformBenchmarks
                 var (cmd, idParameter) = CreateReadCommand(db);
                 using (cmd)
                 {
-                    var cacheKeys = _cacheKeys;
                     var cache = _cache;
-                    for (var i = 1; i < 10001; i++)
+                    for (var i = 1; i < MaxCount; i++)
                     {
                         idParameter.TypedValue = i;
-                        cache.Set<CachedWorld>(cacheKeys[i], await ReadSingleRow(cmd));
+                        cache[i] = await ReadSingleRow(cmd);
                     }
                 }
             }
@@ -233,28 +185,6 @@ namespace PlatformBenchmarks
                     RandomNumber = rdr.GetInt32(1)
                 };
             }
-        }
-
-        private static readonly object[] _cacheKeys = Enumerable.Range(0, 10001).Select((i) => new CacheKey(i)).ToArray();
-
-        public sealed class CacheKey : IEquatable<CacheKey>
-        {
-            private readonly int _value;
-
-            public CacheKey(int value)
-                => _value = value;
-
-            public bool Equals(CacheKey key)
-                => key._value == _value;
-
-            public override bool Equals(object obj) 
-                => ReferenceEquals(obj, this);
-
-            public override int GetHashCode()
-                => _value;
-
-            public override string ToString()
-                => _value.ToString();
         }
     }
 }
