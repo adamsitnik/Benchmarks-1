@@ -9,6 +9,9 @@ namespace PlatformBenchmarks
 {
     public class ConcurrentRandom
     {
+#if NET60_OR_GREATER
+        private readonly Random Random = System.Random.Shared;
+#else
         private static int nextSeed = 0;
 
         // Random isn't thread safe
@@ -23,6 +26,7 @@ namespace PlatformBenchmarks
             _random = new Random(Interlocked.Increment(ref nextSeed));
             return _random;
         }
+#endif
 
         public int Next(int minValue, int maxValue)
         {
