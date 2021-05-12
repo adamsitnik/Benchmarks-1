@@ -9,7 +9,7 @@ namespace PlatformBenchmarks
 {
     public class ConcurrentRandom
     {
-#if NET60_OR_GREATER
+#if NET60 || NET60_OR_GREATER // it seems that NET60_OR_GREATER does not work yet..
         private readonly Random Random = System.Random.Shared;
 #else
         private static int nextSeed = 0;
