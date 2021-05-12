@@ -9,24 +9,7 @@ namespace PlatformBenchmarks
 {
     public class ConcurrentRandom
     {
-#if NET60 || NET60_OR_GREATER // it seems that NET60_OR_GREATER does not work yet..
         private readonly Random Random = System.Random.Shared;
-#else
-        private static int nextSeed = 0;
-
-        // Random isn't thread safe
-        [ThreadStatic]
-        private static Random _random;
-
-        private static Random Random => _random ?? CreateRandom();
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static Random CreateRandom()
-        {
-            _random = new Random(Interlocked.Increment(ref nextSeed));
-            return _random;
-        }
-#endif
 
         public int Next(int minValue, int maxValue)
         {
