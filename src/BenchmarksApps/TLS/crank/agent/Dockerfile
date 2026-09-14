@@ -33,6 +33,8 @@ RUN apt-get update \
         nano \
         # dotnet performance repo microbenchmark dependencies
         libgdiplus \
+        # io_uring prototype benchmarking
+        liburing-dev \
         # libmsquic requirements
         gnupg2 \
         software-properties-common \
